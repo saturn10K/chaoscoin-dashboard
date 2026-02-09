@@ -395,8 +395,7 @@ export default function MiningPanel() {
   const encodedUrl = encodeURIComponent(dappUrl);
   const mobileWallets = [
     { name: "MetaMask", icon: "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg", deepLink: `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, "")}` },
-    { name: "Coinbase", icon: "https://altcoinsbox.com/wp-content/uploads/2022/12/coinbase-logo-300x300.webp", deepLink: `https://go.cb-w.com/dapp?cb_url=${encodedUrl}` },
-    { name: "Trust Wallet", icon: "https://trustwallet.com/assets/images/media/assets/trust_platform.svg", deepLink: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodedUrl}` },
+    { name: "Phantom", icon: "https://avatars.githubusercontent.com/u/78782331?s=200&v=4", deepLink: `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodedUrl}` },
     { name: "Rainbow", icon: "https://avatars.githubusercontent.com/u/48327834?s=200&v=4", deepLink: `https://rnbwapp.com/dapp?url=${encodedUrl}` },
   ];
 
