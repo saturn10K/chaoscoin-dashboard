@@ -1,6 +1,7 @@
 "use client";
 
 import { ZONE_NAMES } from "../lib/constants";
+import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
 function formatNumber(val: string): string {
   const num = parseFloat(val);
@@ -59,17 +60,23 @@ export default function AgentCard({
             #{agentId}
           </span>
           {pioneerPhase > 0 && (
-            <span
-              className="px-1.5 py-0.5 rounded text-xs font-bold leading-none"
-              style={{
-                backgroundColor: "#7B61FF20",
-                color: "#7B61FF",
-                border: "1px solid #7B61FF40",
-                fontSize: 10,
-              }}
+            <BadgeTooltip
+              title={BADGE_INFO.pioneer[pioneerPhase]?.title || `Pioneer P${pioneerPhase}`}
+              description={BADGE_INFO.pioneer[pioneerPhase]?.description || `Registered during Phase ${pioneerPhase}.`}
+              color="#7B61FF"
             >
-              PIONEER P{pioneerPhase}
-            </span>
+              <span
+                className="px-1.5 py-0.5 rounded text-xs font-bold leading-none"
+                style={{
+                  backgroundColor: "#7B61FF20",
+                  color: "#7B61FF",
+                  border: "1px solid #7B61FF40",
+                  fontSize: 10,
+                }}
+              >
+                PIONEER P{pioneerPhase}
+              </span>
+            </BadgeTooltip>
           )}
         </div>
         <div className="flex items-center gap-2 mt-1">

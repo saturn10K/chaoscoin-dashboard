@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { ZONE_NAMES, PIONEER_BADGES } from "../lib/constants";
+import { useAlliances } from "../hooks/useSocialFeed";
+import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
 function formatNumber(val: string): string {
   const num = parseFloat(val);
@@ -10,6 +12,14 @@ function formatNumber(val: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function formatCompact(val: string): string {
+  const num = parseFloat(val);
+  if (isNaN(num)) return "0";
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return num.toFixed(1);
 }
 
 interface Agent {
@@ -30,9 +40,9 @@ interface LeaderboardProps {
 }
 
 // Compute a granular status from on-chain data
-// Monad produces ~2-4 blocks/s, so 1000 blocks ≈ 4-8 minutes.
+// Monad produces ~2-4 blocks/s, so 1000 blocks ~ 4-8 minutes.
 // Agent cycle is 90s, so ~200-400 blocks between heartbeats.
-// HEARTBEAT_INTERVAL = 100,000 blocks (~8-14 hours), TIMEOUT = 2× = 200,000 blocks
+// HEARTBEAT_INTERVAL = 100,000 blocks (~8-14 hours), TIMEOUT = 2x = 200,000 blocks
 type AgentStatus = "mining" | "idle" | "stale" | "hibernated";
 
 function getAgentStatus(agent: Agent, currentBlock?: bigint): AgentStatus {
@@ -63,12 +73,32 @@ type SortKey = "hashrate" | "totalMined" | "resilience";
 
 const SORT_TABS: { key: SortKey; label: string }[] = [
   { key: "hashrate", label: "Hashrate" },
-  { key: "totalMined", label: "Total Mined" },
+  { key: "totalMined", label: "Mined" },
   { key: "resilience", label: "Resilience" },
 ];
 
+function rankColor(idx: number): string {
+  if (idx === 0) return "#ECC94B";
+  if (idx === 1) return "#A0AEC0";
+  if (idx === 2) return "#ED8936";
+  return "#6B7280";
+}
+
 export default function Leaderboard({ agents, currentBlock, onSelectAgent }: LeaderboardProps) {
   const [sortBy, setSortBy] = useState<SortKey>("hashrate");
+  const { alliances } = useAlliances();
+
+  // Build alliance partner map for badge display
+  const alliancePartners = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const a of alliances) {
+      if (!a.active) continue;
+      const [a1, a2] = a.members;
+      map.set(a1, [...(map.get(a1) || []), a2]);
+      map.set(a2, [...(map.get(a2) || []), a1]);
+    }
+    return map;
+  }, [alliances]);
 
   const sorted = useMemo(() => {
     const copy = [...agents];
@@ -87,18 +117,86 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
     return copy;
   }, [agents, sortBy]);
 
+  // Shared badge renderer for both layouts
+  const renderBadges = (agent: Agent) => (
+    <>
+      {agent.pioneerPhase > 0 && (
+        <BadgeTooltip
+          title={BADGE_INFO.pioneer[agent.pioneerPhase]?.title || `Pioneer P${agent.pioneerPhase}`}
+          description={BADGE_INFO.pioneer[agent.pioneerPhase]?.description || `Registered during Phase ${agent.pioneerPhase}.`}
+          color="#7B61FF"
+        >
+          <span
+            className="inline-flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-semibold whitespace-nowrap"
+            style={{
+              backgroundColor: "#7B61FF20",
+              color: "#7B61FF",
+              border: "1px solid #7B61FF40",
+            }}
+          >
+            {PIONEER_BADGES[agent.pioneerPhase] && (
+              <img src={PIONEER_BADGES[agent.pioneerPhase]!} alt="" className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            )}
+            P{agent.pioneerPhase}
+          </span>
+        </BadgeTooltip>
+      )}
+      {alliancePartners.has(parseInt(agent.agentId)) && (
+        <BadgeTooltip
+          title="Allied"
+          description={`Allied with Agent${(alliancePartners.get(parseInt(agent.agentId)) || []).length > 1 ? "s" : ""} ${(alliancePartners.get(parseInt(agent.agentId)) || []).map(p => `#${p}`).join(", ")}. Allied agents share intelligence and coordinate strategies.`}
+          color="#00E5A0"
+        >
+          <span
+            className="inline-flex items-center px-1 py-0.5 rounded text-[10px]"
+            style={{
+              background: "rgba(0,229,160,0.1)",
+              color: "#00E5A0",
+              border: "1px solid rgba(0,229,160,0.25)",
+            }}
+          >
+            🤝
+          </span>
+        </BadgeTooltip>
+      )}
+    </>
+  );
+
+  const renderStatus = (agent: Agent) => {
+    const status = getAgentStatus(agent, currentBlock);
+    const cfg = STATUS_CONFIG[status];
+    return (
+      <BadgeTooltip
+        title={cfg.label}
+        description={BADGE_INFO.status[status] || `Agent is ${status}.`}
+        color={cfg.color}
+      >
+        <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap">
+          <span
+            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{
+              backgroundColor: cfg.color,
+              boxShadow: status === "mining" ? `0 0 6px ${cfg.color}` : undefined,
+            }}
+          />
+          <span style={{ color: cfg.color }}>{cfg.label}</span>
+        </span>
+      </BadgeTooltip>
+    );
+  };
+
   return (
     <div
-      className="rounded-lg border border-white/10 overflow-hidden"
+      className="rounded-lg border border-white/10 overflow-hidden glow-border"
       style={{ backgroundColor: "#0D1117" }}
     >
       {/* Header with sort tabs */}
       <div
-        className="px-4 py-2.5 border-b border-white/10 flex items-center gap-4"
+        className="px-3 sm:px-4 py-2.5 border-b border-white/10 flex items-center gap-2 sm:gap-4"
         style={{ backgroundColor: "#06080D" }}
       >
         <h2
-          className="text-sm font-semibold tracking-wide uppercase"
+          className="text-xs sm:text-sm font-semibold tracking-wide uppercase flex-shrink-0"
           style={{ color: "#7B61FF" }}
         >
           Leaderboard
@@ -108,7 +206,7 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
             <button
               key={tab.key}
               onClick={() => setSortBy(tab.key)}
-              className="px-2.5 py-1 rounded text-xs font-medium transition-colors"
+              className="px-1.5 sm:px-2.5 py-1 rounded text-[10px] sm:text-xs font-medium transition-colors btn-press tab-btn"
               style={{
                 backgroundColor:
                   sortBy === tab.key ? "#7B61FF20" : "transparent",
@@ -125,8 +223,8 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* ─── Desktop table (hidden on mobile) ─── */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/5">
@@ -164,53 +262,29 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
             {sorted.map((agent, idx) => (
               <tr
                 key={agent.agentId}
-                className="hover:bg-white/[0.04] transition-colors cursor-pointer"
+                className="hover:bg-white/[0.04] transition-colors cursor-pointer row-hover"
                 onClick={() => onSelectAgent?.(parseInt(agent.agentId))}
               >
                 {/* Rank */}
                 <td className="px-4 py-2.5">
                   <span
                     className="text-xs font-bold"
-                    style={{
-                      fontFamily: "monospace",
-                      color:
-                        idx === 0
-                          ? "#ECC94B"
-                          : idx === 1
-                          ? "#A0AEC0"
-                          : idx === 2
-                          ? "#ED8936"
-                          : "#6B7280",
-                    }}
+                    style={{ fontFamily: "monospace", color: rankColor(idx) }}
                   >
                     {idx + 1}
                   </span>
                 </td>
 
-                {/* Agent ID */}
+                {/* Agent ID + Badges */}
                 <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className="text-sm text-gray-200"
                       style={{ fontFamily: "monospace" }}
                     >
                       #{agent.agentId}
                     </span>
-                    {agent.pioneerPhase > 0 && (
-                      <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold"
-                        style={{
-                          backgroundColor: "#7B61FF20",
-                          color: "#7B61FF",
-                          border: "1px solid #7B61FF40",
-                        }}
-                      >
-                        {PIONEER_BADGES[agent.pioneerPhase] && (
-                          <img src={PIONEER_BADGES[agent.pioneerPhase]!} alt="" className="w-3.5 h-3.5" />
-                        )}
-                        P{agent.pioneerPhase}
-                      </span>
-                    )}
+                    {renderBadges(agent)}
                   </div>
                 </td>
 
@@ -254,27 +328,95 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
 
                 {/* Status */}
                 <td className="px-4 py-2.5 text-center">
-                  {(() => {
-                    const status = getAgentStatus(agent, currentBlock);
-                    const cfg = STATUS_CONFIG[status];
-                    return (
-                      <span className="inline-flex items-center gap-1 text-xs">
-                        <span
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{
-                            backgroundColor: cfg.color,
-                            boxShadow: status === "mining" ? `0 0 6px ${cfg.color}` : undefined,
-                          }}
-                        />
-                        <span style={{ color: cfg.color }}>{cfg.label}</span>
-                      </span>
-                    );
-                  })()}
+                  {renderStatus(agent)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ─── Mobile card layout (hidden on desktop) ─── */}
+      <div className="md:hidden divide-y divide-white/5">
+        {sorted.length === 0 && (
+          <div className="px-3 py-8 text-center text-gray-500 text-sm">
+            No agents registered yet
+          </div>
+        )}
+        {sorted.map((agent, idx) => {
+          const status = getAgentStatus(agent, currentBlock);
+          const cfg = STATUS_CONFIG[status];
+          return (
+            <div
+              key={agent.agentId}
+              className="px-3 py-3 active:bg-white/[0.04] transition-colors cursor-pointer row-hover"
+              onClick={() => onSelectAgent?.(parseInt(agent.agentId))}
+            >
+              {/* Row 1: Rank + Agent ID + Badges + Status */}
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Rank */}
+                <span
+                  className="text-xs font-bold flex-shrink-0 w-5 text-center"
+                  style={{ fontFamily: "monospace", color: rankColor(idx) }}
+                >
+                  {idx + 1}
+                </span>
+
+                {/* Agent ID */}
+                <span
+                  className="text-sm text-gray-200 flex-shrink-0"
+                  style={{ fontFamily: "monospace" }}
+                >
+                  #{agent.agentId}
+                </span>
+
+                {/* Badges — flex-wrap so they don't overflow */}
+                <div className="flex items-center gap-1 flex-wrap min-w-0">
+                  {renderBadges(agent)}
+                </div>
+
+                {/* Status — pushed right */}
+                <div className="ml-auto flex-shrink-0">
+                  {renderStatus(agent)}
+                </div>
+              </div>
+
+              {/* Row 2: Stats grid */}
+              <div className="flex items-center gap-3 mt-2 ml-5 text-[11px]">
+                {/* Hashrate */}
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">H/s</span>
+                  <span style={{ color: "#00E5A0", fontFamily: "monospace" }}>
+                    {formatCompact(agent.hashrate)}
+                  </span>
+                </div>
+
+                {/* Total Mined */}
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Mined</span>
+                  <span className="text-gray-300" style={{ fontFamily: "monospace" }}>
+                    {formatCompact(agent.totalMined)}
+                  </span>
+                </div>
+
+                {/* Resilience */}
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Res</span>
+                  <span style={{ color: "#60A5FA", fontFamily: "monospace" }}>
+                    {formatCompact(agent.cosmicResilience)}
+                  </span>
+                </div>
+
+                {/* Zone — truncated */}
+                <div className="flex items-center gap-1 ml-auto">
+                  <span className="text-gray-500 truncate" style={{ maxWidth: 80 }}>
+                    {ZONE_NAMES[agent.zone]?.replace("The ", "") || `Z${agent.zone}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

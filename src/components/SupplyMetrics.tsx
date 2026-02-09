@@ -16,6 +16,8 @@ interface BurnsBySource {
   rigRepair: string;
   shieldPurchase: string;
   migration: string;
+  marketplace: string;
+  sabotage: string;
 }
 
 interface SupplyMetricsProps {
@@ -33,6 +35,8 @@ const BURN_SOURCE_LABELS: { key: keyof BurnsBySource; label: string; color: stri
   { key: "rigRepair", label: "Rig Repair", color: "#ED8936" },
   { key: "shieldPurchase", label: "Shield Purchase", color: "#3498DB" },
   { key: "migration", label: "Zone Migration", color: "#ED8936" },
+  { key: "marketplace", label: "Marketplace", color: "#00D4FF" },
+  { key: "sabotage", label: "Sabotage", color: "#FF4444" },
 ];
 
 export default function SupplyMetrics({
@@ -53,7 +57,7 @@ export default function SupplyMetrics({
 
   return (
     <div
-      className="rounded-lg border border-white/10 overflow-hidden"
+      className="rounded-lg border border-white/10 overflow-hidden glow-border"
       style={{ backgroundColor: "#0D1117" }}
     >
       {/* Header */}
@@ -73,7 +77,7 @@ export default function SupplyMetrics({
         {/* Top-level metrics in a 2x2 grid */}
         <div className="grid grid-cols-2 gap-3">
           {/* Total Minted */}
-          <div className="rounded-md p-3 border border-white/5" style={{ backgroundColor: "#06080D" }}>
+          <div className="rounded-md p-3 border border-white/5 card-hover" style={{ backgroundColor: "#06080D" }}>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-1">
               <img src="/assets/icons/hashrate_indicator_green.png" alt="" className="w-3.5 h-3.5" />
               Total Minted
@@ -87,7 +91,7 @@ export default function SupplyMetrics({
           </div>
 
           {/* Total Burned */}
-          <div className="rounded-md p-3 border border-white/5" style={{ backgroundColor: "#06080D" }}>
+          <div className="rounded-md p-3 border border-white/5 card-hover" style={{ backgroundColor: "#06080D" }}>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 uppercase tracking-wider mb-1">
               <img src="/assets/icons/token_burn.png" alt="" className="w-3.5 h-3.5" />
               Total Burned
@@ -101,7 +105,7 @@ export default function SupplyMetrics({
           </div>
 
           {/* Circulating Supply */}
-          <div className="rounded-md p-3 border border-white/5" style={{ backgroundColor: "#06080D" }}>
+          <div className="rounded-md p-3 border border-white/5 card-hover" style={{ backgroundColor: "#06080D" }}>
             <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
               Circulating
             </div>
@@ -114,7 +118,7 @@ export default function SupplyMetrics({
           </div>
 
           {/* Burn Ratio */}
-          <div className="rounded-md p-3 border border-white/5" style={{ backgroundColor: "#06080D" }}>
+          <div className="rounded-md p-3 border border-white/5 card-hover" style={{ backgroundColor: "#06080D" }}>
             <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
               Burn Ratio
             </div>
@@ -129,7 +133,7 @@ export default function SupplyMetrics({
             {/* Burn ratio bar */}
             <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full bar-transition"
                 style={{
                   width: `${Math.min(burnRatio, 100)}%`,
                   background: "linear-gradient(90deg, #FF6B35, #FF6B3580)",
@@ -162,7 +166,7 @@ export default function SupplyMetrics({
                   </span>
                   <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full bar-transition"
                       style={{
                         width: `${barWidth}%`,
                         backgroundColor: source.color,

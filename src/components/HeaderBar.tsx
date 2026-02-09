@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 
 function formatNumber(val: string): string {
   const num = parseFloat(val);
@@ -54,23 +55,26 @@ export default function HeaderBar({
         }
       `}</style>
       <header
-        className="flex items-center justify-between px-4 border-b border-white/10"
+        className="flex flex-wrap items-center justify-between px-3 sm:px-4 gap-y-1 border-b border-white/10"
         style={{
-          height: 60,
+          minHeight: 48,
           backgroundColor: "#06080D",
+          paddingTop: 8,
+          paddingBottom: 8,
         }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <img
             src="/assets/logos/logo.png"
             alt="Chaoscoin"
-            style={{ height: 110, filter: "brightness(1.1)" }}
+            className="h-6 sm:h-[30px]"
+            style={{ filter: "brightness(1.1)" }}
           />
 
           {/* Era Badge */}
           <span
-            className="px-2 py-0.5 rounded-full text-xs font-semibold"
+            className="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold whitespace-nowrap"
             style={{
               backgroundColor: `${eraColor}20`,
               color: eraColor,
@@ -79,17 +83,30 @@ export default function HeaderBar({
           >
             {eraLabel}
           </span>
+
+          {/* Marketplace link */}
+          <Link
+            href="/marketplace"
+            className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
+            style={{
+              backgroundColor: "#00D4FF15",
+              color: "#00D4FF",
+              border: "1px solid #00D4FF30",
+            }}
+          >
+            Marketplace
+          </Link>
         </div>
 
-        {/* Metrics */}
-        <div className="flex items-center gap-6 text-sm">
+        {/* Metrics — scrollable on mobile, normal on desktop */}
+        <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm overflow-x-auto scrollbar-hide">
           {/* Active Agents */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
             <span
-              className="inline-block w-2 h-2 rounded-full"
+              className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
               style={{ backgroundColor: "#00E5A0" }}
             />
-            <span className="text-gray-400">Agents</span>
+            <span className="text-gray-400 hidden sm:inline">Agents</span>
             <span
               className="font-semibold"
               style={{ color: "#00E5A0", fontFamily: "monospace" }}
@@ -99,12 +116,12 @@ export default function HeaderBar({
           </div>
 
           {/* Burn Counter */}
-          <div className="flex items-center gap-1.5">
-            <img src="/assets/icons/token_burn.png" alt="" className="w-4 h-4" />
-            <span className="text-gray-400">Burned</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
+            <img src="/assets/icons/token_burn.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="text-gray-400 hidden sm:inline">Burned</span>
             <span
               ref={burnRef}
-              className="font-semibold"
+              className="font-semibold animate-number-flash"
               style={{ color: "#FF6B35", fontFamily: "monospace" }}
             >
               {formatNumber(totalBurned)}
@@ -112,14 +129,14 @@ export default function HeaderBar({
           </div>
 
           {/* Event Cooldown */}
-          <div className="flex items-center gap-1.5">
-            <img src="/assets/icons/cosmic_event_warning.png" alt="" className="w-4 h-4" />
-            <span className="text-gray-400">Next Event</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
+            <img src="/assets/icons/cosmic_event_warning.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="text-gray-400 hidden sm:inline">Next</span>
             <span
               className="font-semibold"
               style={{ color: "#7B61FF", fontFamily: "monospace" }}
             >
-              {eventCooldown > 0 ? `${eventCooldown} blocks` : "READY"}
+              {eventCooldown > 0 ? `${eventCooldown}b` : "READY"}
             </span>
           </div>
         </div>

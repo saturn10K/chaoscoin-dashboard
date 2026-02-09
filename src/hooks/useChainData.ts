@@ -19,7 +19,7 @@ export interface ChainData {
   totalBurned: string;
   circulatingSupply: string;
   burnRatio: number;
-  burnsBySource: { mining: string; rigPurchase: string; facilityUpgrade: string; rigRepair: string; shieldPurchase: string; migration: string };
+  burnsBySource: { mining: string; rigPurchase: string; facilityUpgrade: string; rigRepair: string; shieldPurchase: string; migration: string; marketplace: string; sabotage: string };
   // Agents
   activeAgentCount: number;
   totalAgents: number;
@@ -80,7 +80,7 @@ export function useChainData() {
         currentEraR, eventCooldownR,
         totalHashrateR, emissionR,
         nextEventIdR, lastEventBlockR,
-        miningB, rigPB, facUB, rigRB, shieldPB, migrationBB,
+        miningB, rigPB, facUB, rigRB, shieldPB, migrationBB, marketplaceBB, sabotageBB,
         ...zoneCountsR
       ] = await Promise.all([
         // Supply
@@ -108,9 +108,12 @@ export function useChainData() {
           safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [3] })),
           safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [4] })),
           safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [5] })),
+          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [7] })), // marketplace
+          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [8] })), // sabotage
         ] : [
           Promise.resolve(0n), Promise.resolve(0n), Promise.resolve(0n),
           Promise.resolve(0n), Promise.resolve(0n), Promise.resolve(0n),
+          Promise.resolve(0n), Promise.resolve(0n),
         ]),
         // Zone counts (8 zones)
         ...(ADDRESSES.zoneManager !== ZERO
@@ -145,6 +148,8 @@ export function useChainData() {
       const rigR = val(rigRB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.rigRepair) * 1e18)) : 0n);
       const shieldP = val(shieldPB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.shieldPurchase) * 1e18)) : 0n);
       const migrationBurn = val(migrationBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.migration) * 1e18)) : 0n);
+      const marketplaceBurn = val(marketplaceBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.marketplace) * 1e18)) : 0n);
+      const sabotageBurn = val(sabotageBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.sabotage) * 1e18)) : 0n);
 
       const zoneCounts = (zoneCountsR as MaybeResult<bigint>[]).map((r, i) =>
         Number(val(r, BigInt(prev?.zoneCounts[i] ?? 0)))
@@ -164,6 +169,8 @@ export function useChainData() {
           rigRepair: formatEther(rigR),
           shieldPurchase: formatEther(shieldP),
           migration: formatEther(migrationBurn),
+          marketplace: formatEther(marketplaceBurn),
+          sabotage: formatEther(sabotageBurn),
         },
         activeAgentCount: Number(activeCount),
         totalAgents: Math.max(Number(nextAgentId) - 1, 0),

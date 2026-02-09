@@ -20,7 +20,6 @@ interface ZoneMapProps {
   onSelectAgent?: (agentId: number) => void;
 }
 
-/** Per-zone aggregated stats */
 interface ZoneStats {
   agents: AgentProfile[];
   totalHashrate: number;
@@ -29,11 +28,96 @@ interface ZoneStats {
   shielded: number;
 }
 
+// ── Flat-top hex geometry ──────────────────────────────────────────────
+// Flat-top: vertex at left/right, flat edges top/bottom
+// For flat-top:
+//   width  = 2 * size
+//   height = sqrt(3) * size
+// Interlocking spacing:
+//   col step (horiz) = 1.5 * size   (overlapping by 0.5 * size)
+//   row step (vert)  = sqrt(3) * size
+//   odd columns shift down by sqrt(3)/2 * size
+
+const S = 56; // hex "radius" — center to vertex
+const HEX_W = 2 * S;
+const HEX_H = Math.sqrt(3) * S;
+const COL_STEP = 1.5 * S; // horizontal distance between column centers
+const ROW_STEP = HEX_H;   // vertical distance between row centers
+
+/** Flat-top hexagon SVG path centered at (0,0) */
+function hexPath(size: number): string {
+  const pts: string[] = [];
+  for (let k = 0; k < 6; k++) {
+    const angle = (Math.PI / 180) * (60 * k);
+    pts.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
+  }
+  return `M${pts.join("L")}Z`;
+}
+
+/**
+ * 8 hexagons on an offset hex grid (flat-top, odd-q offset).
+ *
+ * Grid layout (col, row):
+ *
+ *    col0    col1    col2    col3
+ *   ┌─────┐       ┌─────┐
+ *   │  0  │       │  1  │        row 0
+ *   └──┬──┘       └──┬──┘
+ *      └──┐  ┌──┐  ┌─┘
+ *         │  2  │  │  3  │       row 0 (odd cols shifted down)
+ *         └──┬──┘  └──┬──┘
+ *   ┌─────┐  │       │  ┌─────┐
+ *   │  4  │  │       │  │  5  │  row 1
+ *   └──┬──┘  │       │  └──┬──┘
+ *      └──┐  ┌──┐  ┌─┘  ┌─┘
+ *         │  6  │  │  7  │       row 1 (odd cols shifted down)
+ *         └─────┘  └─────┘
+ *
+ * Mapping: zone index → (col, row)
+ */
+const GRID: [number, number][] = [
+  [0, 0], // zone 0 — col 0, row 0
+  [2, 0], // zone 1 — col 2, row 0
+  [1, 0], // zone 2 — col 1, row 0 (odd col → shifted down)
+  [3, 0], // zone 3 — col 3, row 0 (odd col → shifted down)
+  [0, 1], // zone 4 — col 0, row 1
+  [2, 1], // zone 5 — col 2, row 1
+  [1, 1], // zone 6 — col 1, row 1 (odd col → shifted down)
+  [3, 1], // zone 7 — col 3, row 1 (odd col → shifted down)
+];
+
+function hexPositions(): { x: number; y: number }[] {
+  return GRID.map(([col, row]) => {
+    const x = col * COL_STEP;
+    const y = row * ROW_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
+    return { x, y };
+  });
+}
+
+/** Which zone pairs share a hex edge */
+const ADJACENCY: [number, number][] = [
+  [0, 2], // col0r0 — col1r0
+  [2, 1], // col1r0 — col2r0
+  [1, 3], // col2r0 — col3r0
+  [0, 6], // col0r0 — col1r1 (diagonal)
+  [2, 4], // col1r0 — col0r1
+  [2, 6], // col1r0 — col1r1
+  [2, 5], // col1r0 — col2r1
+  [3, 5], // col3r0 — col2r1
+  [3, 7], // col3r0 — col3r1
+  [1, 7], // col2r0 — col3r1 (diagonal)
+  [4, 6], // col0r1 — col1r1
+  [6, 5], // col1r1 — col2r1
+  [5, 7], // col2r1 — col3r1
+];
+
+// ── Component ──────────────────────────────────────────────────────────
+
 export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent }: ZoneMapProps) {
   const [selectedZone, setSelectedZone] = useState<number | null>(null);
+  const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const maxCount = Math.max(...zoneCounts, 1);
 
-  // Aggregate agent stats per zone
   const zoneStats = useMemo<ZoneStats[]>(() => {
     const stats: ZoneStats[] = Array.from({ length: 8 }, () => ({
       agents: [],
@@ -56,15 +140,21 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
     return stats;
   }, [agents]);
 
-  const RADIUS = 120;
-  const CENTER = 160;
-  const positions = Array.from({ length: 8 }, (_, i) => {
-    const angle = (i * 45 - 90) * (Math.PI / 180);
-    return {
-      x: CENTER + RADIUS * Math.cos(angle),
-      y: CENTER + RADIUS * Math.sin(angle),
-    };
-  });
+  const positions = useMemo(hexPositions, []);
+
+  // SVG viewBox
+  const pad = S + 8;
+  const xs = positions.map((p) => p.x);
+  const ys = positions.map((p) => p.y);
+  const minX = Math.min(...xs) - pad;
+  const minY = Math.min(...ys) - pad;
+  const maxX = Math.max(...xs) + pad;
+  const maxY = Math.max(...ys) + pad;
+  const vw = maxX - minX;
+  const vh = maxY - minY;
+
+  const hexOutline = hexPath(S);
+  const hexClip = hexPath(S - 0.5); // slightly inset for clean image clip
 
   const riskColor = (risk: string) => {
     if (risk === "Very High") return "#FF4444";
@@ -95,134 +185,173 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
       </div>
 
       <div className="p-4">
-        {/* Radial visualization */}
-        <div className="relative mx-auto" style={{ width: 320, height: 320 }}>
-          {/* Connection lines */}
-          <svg
-            className="absolute inset-0"
-            width={320}
-            height={320}
-            viewBox="0 0 320 320"
-          >
-            {positions.map((pos, i) => (
-              <line
-                key={`line-${i}`}
-                x1={CENTER}
-                y1={CENTER}
-                x2={pos.x}
-                y2={pos.y}
-                stroke={ZONE_COLORS[i]}
-                strokeOpacity={selectedZone === i ? 0.5 : 0.15}
-                strokeWidth={selectedZone === i ? 2 : 1}
-              />
+        {/* Hex grid */}
+        <svg
+          viewBox={`${minX} ${minY} ${vw} ${vh}`}
+          className="w-full"
+          style={{ maxHeight: 340 }}
+        >
+          <defs>
+            {positions.map((_, i) => (
+              <clipPath key={`clip-${i}`} id={`hclip-${i}`}>
+                <path d={hexClip} />
+              </clipPath>
             ))}
-            <circle
-              cx={CENTER}
-              cy={CENTER}
-              r={RADIUS}
-              fill="none"
-              stroke="#7B61FF"
-              strokeOpacity={0.08}
-              strokeWidth={1}
-              strokeDasharray="4 4"
-            />
-          </svg>
+            {ZONE_COLORS.map((color, i) => (
+              <filter key={`glow-${i}`} id={`hglow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor={color} floodOpacity="0.45" />
+              </filter>
+            ))}
+          </defs>
 
-          {/* Center node */}
-          <div
-            className="absolute flex flex-col items-center justify-center rounded-full border border-white/10"
-            style={{
-              width: 56,
-              height: 56,
-              left: CENTER - 28,
-              top: CENTER - 28,
-              backgroundColor: "#06080D",
-            }}
-          >
-            <span
-              className="text-xs font-bold"
-              style={{ color: "#7B61FF", fontFamily: "monospace" }}
-            >
-              {totalAgents}
-            </span>
-            <span className="text-xs text-gray-600" style={{ fontSize: 9 }}>
-              total
-            </span>
-          </div>
-
-          {/* Zone nodes */}
-          {positions.map((pos, i) => {
-            const count = zoneCounts[i] || 0;
-            const intensity = count / maxCount;
-            const isSelected = selectedZone === i;
-            const nodeSize = isSelected ? 76 : 52 + intensity * 20;
-
+          {/* Edge lines between adjacent hexes */}
+          {ADJACENCY.map(([a, b]) => {
+            const pa = positions[a];
+            const pb = positions[b];
+            const aHot = a === selectedZone || a === hoveredZone;
+            const bHot = b === selectedZone || b === hoveredZone;
+            const hot = aHot || bHot;
             return (
-              <div
-                key={`zone-${i}`}
-                className="absolute flex flex-col items-center justify-center rounded-lg border transition-all duration-300 overflow-hidden"
-                style={{
-                  width: nodeSize,
-                  height: nodeSize,
-                  left: pos.x - nodeSize / 2,
-                  top: pos.y - nodeSize / 2,
-                  backgroundImage: `linear-gradient(rgba(6,8,13,${isSelected ? 0.4 : 0.6}), rgba(6,8,13,${isSelected ? 0.4 : 0.6})), url(${ZONE_IMAGES[i]})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  borderColor: isSelected
-                    ? ZONE_COLORS[i]
-                    : `${ZONE_COLORS[i]}40`,
-                  borderWidth: isSelected ? 2 : 1,
-                  boxShadow: isSelected
-                    ? `0 0 20px ${ZONE_COLORS[i]}40`
-                    : count > 0
-                    ? `0 0 ${8 + intensity * 12}px ${ZONE_COLORS[i]}20`
-                    : "none",
-                  cursor: "pointer",
-                  zIndex: isSelected ? 10 : 1,
-                }}
-                onClick={() => setSelectedZone(isSelected ? null : i)}
-              >
-                <span
-                  className="text-xs font-bold leading-tight"
-                  style={{ color: ZONE_COLORS[i], fontFamily: "monospace" }}
-                >
-                  {count}
-                </span>
-                <span
-                  className="text-center leading-none mt-0.5"
-                  style={{
-                    color: `${ZONE_COLORS[i]}CC`,
-                    fontSize: 8,
-                    maxWidth: nodeSize - 8,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {ZONE_NAMES[i]}
-                </span>
-                <span
-                  className="leading-none mt-0.5"
-                  style={{
-                    fontSize: 7,
-                    color:
-                      ZONE_MODIFIERS[i]?.startsWith("+") && ZONE_MODIFIERS[i] !== "+0%"
-                        ? "#00E5A0"
-                        : ZONE_MODIFIERS[i]?.startsWith("-")
-                        ? "#FF6B35"
-                        : "#6B7280",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {ZONE_MODIFIERS[i]}
-                </span>
-              </div>
+              <line
+                key={`e-${a}-${b}`}
+                x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
+                stroke={hot ? (aHot ? ZONE_COLORS[a] : ZONE_COLORS[b]) : "#7B61FF"}
+                strokeOpacity={hot ? 0.3 : 0.04}
+                strokeWidth={hot ? 1.5 : 0.5}
+                style={{ transition: "all 0.3s ease" }}
+              />
             );
           })}
-        </div>
 
-        {/* Zone detail panel — shown when a zone is selected */}
+          {/* Hexagons — render hovered/selected last so they sit on top */}
+          {positions
+            .map((pos, i) => ({ pos, i }))
+            .sort((a, b) => {
+              const aZ = a.i === selectedZone ? 2 : a.i === hoveredZone ? 1 : 0;
+              const bZ = b.i === selectedZone ? 2 : b.i === hoveredZone ? 1 : 0;
+              return aZ - bZ;
+            })
+            .map(({ pos, i }) => {
+            const count = zoneCounts[i] || 0;
+            const intensity = count / maxCount;
+            const isSel = selectedZone === i;
+            const isHov = hoveredZone === i;
+            const active = isSel || isHov;
+            const scale = isSel ? 1.13 : isHov ? 1.09 : 1;
+
+            return (
+              <g
+                key={`h-${i}`}
+                transform={`translate(${pos.x},${pos.y})`}
+                onClick={() => setSelectedZone(isSel ? null : i)}
+                onMouseEnter={() => setHoveredZone(i)}
+                onMouseLeave={() => setHoveredZone(null)}
+                style={{ cursor: "pointer" }}
+              >
+                {/* Inner group for scale transform — scales from center of hex */}
+                <g
+                  className="hex-pop"
+                  style={{
+                    transform: `scale(${scale})`,
+                    transformOrigin: "0 0",
+                    transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  }}
+                >
+                {/* Zone image clipped to hex */}
+                <g clipPath={`url(#hclip-${i})`}>
+                  <image
+                    href={ZONE_IMAGES[i]}
+                    x={-S} y={-S} width={S * 2} height={S * 2}
+                    preserveAspectRatio="xMidYMid slice"
+                    opacity={active ? 0.5 : 0.2}
+                    style={{ transition: "opacity 0.3s ease" }}
+                  />
+                  <path
+                    d={hexClip}
+                    fill="#06080D"
+                    opacity={active ? 0.3 : 0.6}
+                    style={{ transition: "opacity 0.3s ease" }}
+                  />
+                </g>
+
+                {/* Hex border */}
+                <path
+                  d={hexOutline}
+                  fill="none"
+                  stroke={ZONE_COLORS[i]}
+                  strokeWidth={isSel ? 2.5 : isHov ? 2 : 1}
+                  strokeOpacity={isSel ? 0.9 : isHov ? 0.7 : 0.2 + intensity * 0.25}
+                  filter={active ? `url(#hglow-${i})` : undefined}
+                  style={{ transition: "all 0.3s ease" }}
+                />
+
+                {/* Agent count */}
+                <text
+                  y={-10}
+                  textAnchor="middle"
+                  fill={ZONE_COLORS[i]}
+                  fontSize={active ? 19 : 16}
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                  style={{ transition: "font-size 0.2s ease" }}
+                >
+                  {count}
+                </text>
+
+                {/* Zone name (trimmed) */}
+                <text
+                  y={6}
+                  textAnchor="middle"
+                  fill={`${ZONE_COLORS[i]}CC`}
+                  fontSize={7.5}
+                  fontFamily="sans-serif"
+                  fontWeight={active ? "600" : "400"}
+                >
+                  {ZONE_NAMES[i].replace("The ", "")}
+                </text>
+
+                {/* Modifier */}
+                <text
+                  y={18}
+                  textAnchor="middle"
+                  fill={
+                    ZONE_MODIFIERS[i]?.startsWith("+") && ZONE_MODIFIERS[i] !== "+0%"
+                      ? "#00E5A0"
+                      : ZONE_MODIFIERS[i]?.startsWith("-")
+                      ? "#FF6B35"
+                      : "#6B7280"
+                  }
+                  fontSize={8}
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  {ZONE_MODIFIERS[i]}
+                </text>
+
+                {/* Pulse on occupied hexes */}
+                {count > 0 && (
+                  <path
+                    d={hexPath(S + 3)}
+                    fill="none"
+                    stroke={ZONE_COLORS[i]}
+                    strokeWidth={0.5}
+                    strokeOpacity={0.15}
+                  >
+                    <animate
+                      attributeName="stroke-opacity"
+                      values="0.1;0.3;0.1"
+                      dur={`${3 + i * 0.4}s`}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                )}
+                </g>
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Zone detail panel */}
         {selectedZone !== null && (
           <div
             className="mt-4 rounded-lg border overflow-hidden"
@@ -231,7 +360,6 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
               borderColor: `${ZONE_COLORS[selectedZone]}30`,
             }}
           >
-            {/* Zone header with image */}
             <div className="relative h-28 overflow-hidden">
               <img
                 src={ZONE_IMAGES[selectedZone]}
@@ -259,19 +387,13 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
               </div>
             </div>
 
-            {/* Zone stats grid */}
             <div className="p-3 grid grid-cols-4 gap-2 border-b border-white/5">
               <StatBox label="Agents" value={String(zoneCounts[selectedZone] || 0)} color={ZONE_COLORS[selectedZone]} />
               <StatBox label="Hashrate" value={`${zoneStats[selectedZone].totalHashrate} H/s`} color="#00E5A0" />
-              <StatBox
-                label="Total Mined"
-                value={formatCompact(zoneStats[selectedZone].totalMined)}
-                color="#ECC94B"
-              />
+              <StatBox label="Total Mined" value={formatCompact(zoneStats[selectedZone].totalMined)} color="#ECC94B" />
               <StatBox label="Shielded" value={`${zoneStats[selectedZone].shielded}/${zoneCounts[selectedZone] || 0}`} color="#3498DB" />
             </div>
 
-            {/* Zone info */}
             <div className="p-3 border-b border-white/5 space-y-2">
               <p className="text-xs text-gray-400 leading-relaxed">
                 {ZONE_DESCRIPTIONS[selectedZone]}
@@ -297,21 +419,16 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
               </div>
             </div>
 
-            {/* Agents in this zone */}
             <div className="p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-500 uppercase tracking-wide">
-                  Agents in zone
-                </span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Agents in zone</span>
                 <span className="text-xs text-gray-600" style={{ fontFamily: "monospace" }}>
                   Avg hashrate: {zoneStats[selectedZone].avgHashrate} H/s
                 </span>
               </div>
 
               {zoneStats[selectedZone].agents.length === 0 ? (
-                <div className="text-center py-4 text-gray-600 text-xs">
-                  No agents in this zone
-                </div>
+                <div className="text-center py-4 text-gray-600 text-xs">No agents in this zone</div>
               ) : (
                 <div className="space-y-1 max-h-48 overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
                   {zoneStats[selectedZone].agents
@@ -348,12 +465,7 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
                           </span>
                           <span
                             className="text-xs"
-                            style={{
-                              fontFamily: "monospace",
-                              minWidth: 70,
-                              textAlign: "right",
-                              color: "#ECC94B",
-                            }}
+                            style={{ fontFamily: "monospace", minWidth: 70, textAlign: "right", color: "#ECC94B" }}
                           >
                             {formatCompact(parseFloat(agent.totalMined) || 0)}
                           </span>
@@ -366,26 +478,40 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
           </div>
         )}
 
-        {/* Zone legend list — only show when no zone is selected */}
+        {/* Zone legend — only when no zone selected */}
         {selectedZone === null && (
           <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1">
             {ZONE_NAMES.map((name, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 py-0.5 rounded px-1 transition-colors hover:bg-white/5"
-                style={{ cursor: "pointer" }}
+                className="flex items-center gap-2 py-1 rounded px-1.5 transition-all duration-200"
+                style={{
+                  cursor: "pointer",
+                  backgroundColor: hoveredZone === i ? `${ZONE_COLORS[i]}10` : "transparent",
+                  borderLeft: hoveredZone === i ? `2px solid ${ZONE_COLORS[i]}` : "2px solid transparent",
+                }}
                 onClick={() => setSelectedZone(i)}
+                onMouseEnter={() => setHoveredZone(i)}
+                onMouseLeave={() => setHoveredZone(null)}
               >
                 <img
                   src={ZONE_IMAGES[i]}
                   alt=""
-                  className="w-4 h-4 rounded-sm flex-shrink-0 object-cover"
-                  style={{ border: `1px solid ${ZONE_COLORS[i]}40` }}
+                  className="w-4 h-4 rounded-sm flex-shrink-0 object-cover transition-transform duration-200"
+                  style={{
+                    border: `1px solid ${hoveredZone === i ? ZONE_COLORS[i] : `${ZONE_COLORS[i]}40`}`,
+                    transform: hoveredZone === i ? "scale(1.15)" : "scale(1)",
+                  }}
                 />
-                <span className="text-xs text-gray-400 truncate flex-1">{name}</span>
                 <span
-                  className="text-xs text-gray-500 flex-shrink-0"
-                  style={{ fontFamily: "monospace" }}
+                  className="text-xs truncate flex-1 transition-colors duration-200"
+                  style={{ color: hoveredZone === i ? ZONE_COLORS[i] : "#9CA3AF" }}
+                >
+                  {name}
+                </span>
+                <span
+                  className="text-xs flex-shrink-0 transition-colors duration-200"
+                  style={{ fontFamily: "monospace", color: hoveredZone === i ? ZONE_COLORS[i] : "#6B7280" }}
                 >
                   {zoneCounts[i] || 0}
                 </span>
@@ -401,12 +527,8 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
 function StatBox({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="text-center">
-      <div className="text-xs font-bold" style={{ color, fontFamily: "monospace" }}>
-        {value}
-      </div>
-      <div className="text-xs text-gray-600 mt-0.5" style={{ fontSize: 9 }}>
-        {label}
-      </div>
+      <div className="text-xs font-bold" style={{ color, fontFamily: "monospace" }}>{value}</div>
+      <div className="text-xs text-gray-600 mt-0.5" style={{ fontSize: 9 }}>{label}</div>
     </div>
   );
 }

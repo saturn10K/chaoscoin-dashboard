@@ -2,6 +2,7 @@
 
 import { useAgentDetails } from "../hooks/useAgentDetails";
 import { ZONE_NAMES, ZONE_COLORS, ZONE_IMAGES, RIG_NAMES, RIG_IMAGES, FACILITY_NAMES, FACILITY_IMAGES, SHIELD_NAMES, SHIELD_IMAGES, RIG_TIER_COLORS, PIONEER_BADGES } from "../lib/constants";
+import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
 function fmt(val: string, decimals = 2): string {
   const num = parseFloat(val);
@@ -24,12 +25,12 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border"
-        style={{ backgroundColor: "#0D1117", borderColor: "#7B61FF40" }}
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border animate-scale-in"
+        style={{ backgroundColor: "#0D1117", borderColor: "#7B61FF40", boxShadow: "0 0 60px rgba(123, 97, 255, 0.1), 0 0 120px rgba(123, 97, 255, 0.05)" }}
       >
         {/* Header */}
         <div
@@ -41,15 +42,21 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
               Agent #{agentId}
             </h2>
             {details?.pioneerPhase && details.pioneerPhase > 0 && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold"
-                style={{ backgroundColor: "#7B61FF20", color: "#7B61FF", border: "1px solid #7B61FF40" }}
+              <BadgeTooltip
+                title={BADGE_INFO.pioneer[details.pioneerPhase]?.title || `Pioneer P${details.pioneerPhase}`}
+                description={BADGE_INFO.pioneer[details.pioneerPhase]?.description || `Registered during Phase ${details.pioneerPhase}.`}
+                color="#7B61FF"
               >
-                {PIONEER_BADGES[details.pioneerPhase] && (
-                  <img src={PIONEER_BADGES[details.pioneerPhase]!} alt="" className="w-4 h-4" />
-                )}
-                PIONEER P{details.pioneerPhase}
-              </span>
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold"
+                  style={{ backgroundColor: "#7B61FF20", color: "#7B61FF", border: "1px solid #7B61FF40" }}
+                >
+                  {PIONEER_BADGES[details.pioneerPhase] && (
+                    <img src={PIONEER_BADGES[details.pioneerPhase]!} alt="" className="w-4 h-4" />
+                  )}
+                  PIONEER P{details.pioneerPhase}
+                </span>
+              </BadgeTooltip>
             )}
             {details && (
               <span className="inline-flex items-center gap-1 text-xs">

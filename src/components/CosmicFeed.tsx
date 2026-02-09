@@ -36,7 +36,7 @@ function getAffectedZones(mask: number): number[] {
 export default function CosmicFeed({ events }: CosmicFeedProps) {
   return (
     <div
-      className="rounded-lg border border-white/10 overflow-hidden"
+      className="rounded-lg border border-white/10 overflow-hidden glow-border"
       style={{ backgroundColor: "#0D1117" }}
     >
       {/* Header */}
@@ -45,8 +45,8 @@ export default function CosmicFeed({ events }: CosmicFeedProps) {
         style={{ backgroundColor: "#06080D" }}
       >
         <span
-          className="inline-block w-2 h-2 rounded-full animate-pulse"
-          style={{ backgroundColor: "#7B61FF" }}
+          className="inline-block w-2 h-2 rounded-full status-dot-live"
+          style={{ color: "#7B61FF" }}
         />
         <h2
           className="text-sm font-semibold tracking-wide uppercase"
@@ -80,14 +80,14 @@ export default function CosmicFeed({ events }: CosmicFeedProps) {
           return (
             <div
               key={event.eventId}
-              className="px-4 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors"
+              className="px-4 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors card-hover"
             >
               {/* Event Icon + Tier Badge */}
               <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
                 <img
                   src={EVENT_ICONS[event.eventType] || EVENT_ICONS[0]}
                   alt=""
-                  className="w-7 h-7 object-contain"
+                  className="w-7 h-7 object-contain animate-gentle-float"
                   style={{ filter: `drop-shadow(0 0 4px ${tierColor}60)` }}
                 />
                 <span
