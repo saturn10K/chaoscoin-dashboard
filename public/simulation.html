@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chaoscoin Simulation Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #06080D;
+    color: #E5E7EB;
+    font-family: 'Inter', -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #7B61FF, #00E5A0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .subtitle { color: #6B7280; font-size: 14px; margin-bottom: 32px; }
+  .grid { display: grid; gap: 20px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .card {
+    background: #0D1117;
+    border: 1px solid rgba(123, 97, 255, 0.15);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h3 {
+    color: #7B61FF;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stat-label { color: #6B7280; font-size: 12px; margin-top: 4px; }
+  .stat-sub { color: #4B5563; font-size: 11px; margin-top: 2px; }
+
+  .chart-container { position: relative; height: 280px; }
+  .chart-container-lg { position: relative; height: 350px; }
+
+  .burn-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .burn-bar:last-child { border-bottom: none; }
+  .burn-label { color: #9CA3AF; font-size: 12px; width: 140px; flex-shrink: 0; }
+  .burn-track { flex: 1; height: 20px; background: rgba(255,255,255,0.03); border-radius: 4px; overflow: hidden; }
+  .burn-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .burn-amount { color: #E5E7EB; font-size: 12px; font-family: monospace; width: 100px; text-align: right; }
+
+  .miner-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 6px;
+  }
+  .miner-rank {
+    font-size: 14px;
+    font-weight: 800;
+    color: #7B61FF;
+    width: 32px;
+    text-align: center;
+  }
+  .miner-info { flex: 1; }
+  .miner-name { font-size: 13px; font-weight: 600; color: #E5E7EB; }
+  .miner-meta { font-size: 11px; color: #6B7280; }
+  .miner-amount { font-size: 13px; font-weight: 700; color: #00E5A0; font-family: monospace; }
+
+  .strat-card {
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .strat-name { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .strat-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  .strat-stat-label { color: #6B7280; }
+  .strat-stat-value { color: #E5E7EB; font-family: monospace; font-weight: 600; }
+
+  .insight-box {
+    background: rgba(123, 97, 255, 0.06);
+    border: 1px solid rgba(123, 97, 255, 0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 20px;
+  }
+  .insight-box h4 { color: #7B61FF; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .insight-box p { color: #9CA3AF; font-size: 13px; line-height: 1.6; }
+  .insight-box strong { color: #E5E7EB; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Chaoscoin Simulation</h1>
+<p class="subtitle">500 Agents &middot; 30,000 Blocks &middot; 4 Strategies &middot; Degradation System Active</p>
+
+<!-- KPI Row -->
+<div class="grid grid-4" style="margin-bottom: 20px;">
+  <div class="card">
+    <h3>Total Minted</h3>
+    <div class="stat-value" style="color: #00E5A0;">6.5M</div>
+    <div class="stat-label">CHAOS tokens created</div>
+  </div>
+  <div class="card">
+    <h3>Total Burned</h3>
+    <div class="stat-value" style="color: #FF6B35;">20.7M</div>
+    <div class="stat-label">CHAOS destroyed</div>
+    <div class="stat-sub">3.18x more burned than minted</div>
+  </div>
+  <div class="card">
+    <h3>Burn Rate</h3>
+    <div class="stat-value" style="color: #ECC94B;">318%</div>
+    <div class="stat-label">Burn-to-mint ratio</div>
+    <div class="stat-sub">Strongly deflationary</div>
+  </div>
+  <div class="card">
+    <h3>Active Agents</h3>
+    <div class="stat-value" style="color: #60A5FA;">500</div>
+    <div class="stat-label">0 hibernated</div>
+    <div class="stat-sub">Genesis Phase 2</div>
+  </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="grid grid-2" style="margin-bottom: 20px;">
+  <div class="card">
+    <h3>Network Hashrate Over Time</h3>
+    <div class="chart-container"><canvas id="hashrateChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Cumulative Burns Over Time</h3>
+    <div class="chart-container"><canvas id="burnChart"></canvas></div>
+  </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="grid grid-2" style="margin-bottom: 20px;">
+  <div class="card">
+    <h3>Equipment Health</h3>
+    <div class="chart-container"><canvas id="healthChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Burns by Source</h3>
+    <div style="padding-top: 4px;">
+      <div id="burnBars"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Strategy Performance -->
+<div class="card" style="margin-bottom: 20px;">
+  <h3>Strategy Performance Comparison</h3>
+  <div class="grid grid-4" style="gap: 12px;">
+    <div class="strat-card" style="background: rgba(255, 107, 53, 0.06); border-color: rgba(255, 107, 53, 0.2);">
+      <div class="strat-name" style="color: #FF6B35;">⚔️ Aggressive</div>
+      <div class="strat-stat"><span class="strat-stat-label">Agents</span><span class="strat-stat-value">150</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Mined</span><span class="strat-stat-value" style="color: #00E5A0;">10,398 CHAOS</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Hashrate</span><span class="strat-stat-value">17 H/s</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Upgraded Rigs</span><span class="strat-stat-value">150 (100%)</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Shields</span><span class="strat-stat-value">0</span></div>
+    </div>
+    <div class="strat-card" style="background: rgba(52, 152, 219, 0.06); border-color: rgba(52, 152, 219, 0.2);">
+      <div class="strat-name" style="color: #3498DB;">🛡️ Defensive</div>
+      <div class="strat-stat"><span class="strat-stat-label">Agents</span><span class="strat-stat-value">150</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Mined</span><span class="strat-stat-value" style="color: #00E5A0;">10,402 CHAOS</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Hashrate</span><span class="strat-stat-value">16 H/s</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Upgraded Rigs</span><span class="strat-stat-value">150 (100%)</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Shields</span><span class="strat-stat-value">0</span></div>
+    </div>
+    <div class="strat-card" style="background: rgba(0, 229, 160, 0.06); border-color: rgba(0, 229, 160, 0.2);">
+      <div class="strat-name" style="color: #00E5A0;">⚖️ Balanced</div>
+      <div class="strat-stat"><span class="strat-stat-label">Agents</span><span class="strat-stat-value">100</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Mined</span><span class="strat-stat-value" style="color: #00E5A0;">10,396 CHAOS</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Hashrate</span><span class="strat-stat-value">17 H/s</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Upgraded Rigs</span><span class="strat-stat-value">100 (100%)</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Shields</span><span class="strat-stat-value">0</span></div>
+    </div>
+    <div class="strat-card" style="background: rgba(236, 201, 75, 0.06); border-color: rgba(236, 201, 75, 0.2);">
+      <div class="strat-name" style="color: #ECC94B;">🏃 Nomad</div>
+      <div class="strat-stat"><span class="strat-stat-label">Agents</span><span class="strat-stat-value">100</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Mined</span><span class="strat-stat-value" style="color: #00E5A0;">10,402 CHAOS</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Avg Hashrate</span><span class="strat-stat-value">59 H/s</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Upgraded Rigs</span><span class="strat-stat-value">100 (100%)</span></div>
+      <div class="strat-stat"><span class="strat-stat-label">Shields</span><span class="strat-stat-value">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Top Miners -->
+<div class="grid grid-2" style="margin-bottom: 20px;">
+  <div class="card">
+    <h3>Top 10 Miners</h3>
+    <div id="topMiners"></div>
+  </div>
+  <div class="card">
+    <h3>Hashrate Distribution by Strategy</h3>
+    <div class="chart-container"><canvas id="stratChart"></canvas></div>
+  </div>
+</div>
+
+<!-- Insights -->
+<div class="insight-box">
+  <h4>🔍 Key Simulation Insights</h4>
+  <p>
+    <strong>Deflationary Pressure:</strong> Burns outpace minting 3.18:1. Of 20.7M CHAOS burned, <strong>66.5%</strong> came from rig purchases (13.8M),
+    <strong>23.2%</strong> from repairs (4.8M), <strong>6.3%</strong> from mining tax (1.3M), and <strong>3.6%</strong> from facility upgrades (750K).
+    Facility maintenance burned 69.7K — relatively small since agents aren't maintaining aggressively enough.<br/><br/>
+    <strong>Hashrate Decay:</strong> Network hashrate peaked at <strong>61,666 H/s</strong> (block 12K) then steadily declined to <strong>12,798 H/s</strong> by block 40K —
+    a <strong>79% decline</strong>. This is the degradation system working: rigs lose durability, reducing effective hashrate. Agents repair but can't keep up with the constant drain.<br/><br/>
+    <strong>Facility Condition Erosion:</strong> Average facility condition dropped from <strong>95.4%</strong> to <strong>51.9%</strong> over the simulation.
+    This means power output and shelter ratings are halved — making agents more vulnerable to cosmic events and unable to sustain high-tier rigs.<br/><br/>
+    <strong>Strategy Convergence:</strong> All four strategies produced nearly identical total mining output (~10,400 CHAOS avg). This suggests the <strong>50K starting seed dominates early behavior</strong> —
+    everyone buys the same initial upgrades. Differentiation would emerge over longer timeframes when cosmic events and balance depletion force divergent choices.<br/><br/>
+    <strong>No Cosmic Events:</strong> Zero cosmic events triggered because the cooldown (75,000 blocks in Era I) exceeds the simulation length (30K blocks).
+    In a longer sim or with reduced cooldowns, cosmic events would create dramatic divergence between shielded defensive agents and exposed aggressive ones.<br/><br/>
+    <strong>No Migrations:</strong> Zone distribution remained perfectly even (63/62 per zone). Migration costs 500K+ CHAOS — far more than agents earned in this simulation window.
+  </p>
+</div>
+
+<script>
+// Simulation data extracted from forge output
+const snapshots = [
+  { block: 12002, hashrate: 61666, burned: 9613749, durability: 18032, condition: 9540 },
+  { block: 14002, hashrate: 48690, burned: 12478749, durability: 18464, condition: 9155 },
+  { block: 16002, hashrate: 44226, burned: 14220624, durability: 19656, condition: 8784 },
+  { block: 18002, hashrate: 35961, burned: 16819374, durability: 22144, condition: 8392 },
+  { block: 20002, hashrate: 33482, burned: 17531874, durability: 23936, condition: 8000 },
+  { block: 22002, hashrate: 24404, burned: 18021249, durability: 23520, condition: 7608 },
+  { block: 24002, hashrate: 20550, burned: 18557499, durability: 24328, condition: 7216 },
+  { block: 26002, hashrate: 18142, burned: 19065624, durability: 23928, condition: 6824 },
+  { block: 28002, hashrate: 19252, burned: 19483749, durability: 24800, condition: 6432 },
+  { block: 30002, hashrate: 15245, burned: 19654374, durability: 23928, condition: 6040 },
+  { block: 32002, hashrate: 16145, burned: 20016249, durability: 24488, condition: 5648 },
+  { block: 34002, hashrate: 12482, burned: 20128749, durability: 23560, condition: 5256 },
+  { block: 36002, hashrate: 13794, burned: 20460999, durability: 24880, condition: 5977 },
+  { block: 38002, hashrate: 10623, burned: 20502249, durability: 23840, condition: 5585 },
+  { block: 40002, hashrate: 12798, burned: 20704749, durability: 24480, condition: 5193 },
+];
+
+const labels = snapshots.map(s => `${(s.block/1000).toFixed(0)}K`);
+
+// Chart defaults
+Chart.defaults.color = '#6B7280';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+// Hashrate Chart
+new Chart(document.getElementById('hashrateChart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Total Hashrate (H/s)',
+      data: snapshots.map(s => s.hashrate),
+      borderColor: '#00E5A0',
+      backgroundColor: 'rgba(0, 229, 160, 0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 3,
+      pointBackgroundColor: '#00E5A0',
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toLocaleString()} H/s` } }
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.03)' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Burn Chart
+new Chart(document.getElementById('burnChart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Cumulative Burns (CHAOS)',
+      data: snapshots.map(s => s.burned),
+      borderColor: '#FF6B35',
+      backgroundColor: 'rgba(255, 107, 53, 0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 3,
+      pointBackgroundColor: '#FF6B35',
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `${(ctx.parsed.y/1e6).toFixed(2)}M CHAOS burned` } }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(255,255,255,0.03)' },
+        ticks: { callback: v => `${(v/1e6).toFixed(0)}M` }
+      },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Health Chart (Durability + Condition)
+new Chart(document.getElementById('healthChart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Avg Rig Durability',
+        data: snapshots.map(s => (s.durability / 10000 * 100).toFixed(1)),
+        borderColor: '#ECC94B',
+        backgroundColor: 'rgba(236, 201, 75, 0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: '#ECC94B',
+      },
+      {
+        label: 'Avg Facility Condition',
+        data: snapshots.map(s => (s.condition / 10000 * 100).toFixed(1)),
+        borderColor: '#7B61FF',
+        backgroundColor: 'rgba(123, 97, 255, 0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: '#7B61FF',
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 }
+      },
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%` } }
+    },
+    scales: {
+      y: {
+        min: 0, max: 300,
+        grid: { color: 'rgba(255,255,255,0.03)' },
+        ticks: { callback: v => `${v}%` }
+      },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Burns by Source bars
+const burns = [
+  { label: 'Rig Purchase', amount: 13773750, color: '#FF6B35' },
+  { label: 'Rig Repair', amount: 4811250, color: '#ECC94B' },
+  { label: 'Mining Tax (20%)', amount: 1299999, color: '#00E5A0' },
+  { label: 'Facility Upgrade', amount: 750000, color: '#7B61FF' },
+  { label: 'Facility Maint.', amount: 69750, color: '#3498DB' },
+  { label: 'Shield Purchase', amount: 0, color: '#9B59B6' },
+  { label: 'Migration', amount: 0, color: '#E74C3C' },
+];
+const maxBurn = Math.max(...burns.map(b => b.amount));
+const barsHtml = burns.map(b => `
+  <div class="burn-bar">
+    <span class="burn-label">${b.label}</span>
+    <div class="burn-track">
+      <div class="burn-fill" style="width: ${b.amount > 0 ? Math.max((b.amount / maxBurn * 100), 1) : 0}%; background: ${b.color};"></div>
+    </div>
+    <span class="burn-amount">${b.amount > 0 ? (b.amount / 1e6).toFixed(2) + 'M' : '0'}</span>
+  </div>
+`).join('');
+document.getElementById('burnBars').innerHTML = barsHtml;
+
+// Top 10 Miners
+const topMiners = [
+  { id: 1, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 9, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 17, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 25, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 33, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 41, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 49, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 57, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 65, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+  { id: 73, strategy: 'Aggressive', zone: 0, mined: 11431, hashrate: 18 },
+];
+const stratColors = { Aggressive: '#FF6B35', Defensive: '#3498DB', Balanced: '#00E5A0', Nomad: '#ECC94B' };
+const minersHtml = topMiners.map((m, i) => `
+  <div class="miner-row">
+    <div class="miner-rank">#${i + 1}</div>
+    <div class="miner-info">
+      <div class="miner-name">Agent #${m.id}</div>
+      <div class="miner-meta"><span style="color: ${stratColors[m.strategy]}">${m.strategy}</span> &middot; Zone ${m.zone} &middot; ${m.hashrate} H/s</div>
+    </div>
+    <div class="miner-amount">${m.mined.toLocaleString()} CHAOS</div>
+  </div>
+`).join('');
+document.getElementById('topMiners').innerHTML = minersHtml;
+
+// Strategy Pie Chart
+new Chart(document.getElementById('stratChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Aggressive (150)', 'Defensive (150)', 'Balanced (100)', 'Nomad (100)'],
+    datasets: [{
+      data: [150 * 17, 150 * 16, 100 * 17, 100 * 59],
+      backgroundColor: ['#FF6B35', '#3498DB', '#00E5A0', '#ECC94B'],
+      borderColor: '#0D1117',
+      borderWidth: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11 } }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+            return `${ctx.label}: ${ctx.parsed.toLocaleString()} H/s (${pct}%)`;
+          }
+        }
+      }
+    }
+  }
+});
+</script>
+
+</body>
+</html>

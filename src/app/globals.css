@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #06080D;
+  --foreground: #E2E8F0;
+  --void-900: #06080D;
+  --void-800: #0D1117;
+  --void-700: #161B22;
+  --cosmic-500: #7B61FF;
+  --mining-500: #00E5A0;
+  --burn-500: #FF6B35;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
-  background: var(--background);
+  background: var(--void-900);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--void-800);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--void-700);
+  border-radius: 3px;
+}
+
+@keyframes pulseBurn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
