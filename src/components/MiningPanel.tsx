@@ -395,7 +395,7 @@ export default function MiningPanel() {
   const encodedUrl = encodeURIComponent(dappUrl);
   const mobileWallets = [
     { name: "MetaMask", icon: "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg", deepLink: `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, "")}` },
-    { name: "Phantom", icon: "https://avatars.githubusercontent.com/u/78782331?s=200&v=4", deepLink: `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodedUrl}` },
+    { name: "Phantom", icon: "https://phantom.com/img/phantom-logo.svg", deepLink: `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodedUrl}` },
     { name: "Rainbow", icon: "https://avatars.githubusercontent.com/u/48327834?s=200&v=4", deepLink: `https://rnbwapp.com/dapp?url=${encodedUrl}` },
   ];
 
