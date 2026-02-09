@@ -386,6 +386,20 @@ export default function MiningPanel() {
 
   // ─── Not connected ────────────────────────────────────────────────────────
 
+  // Detect mobile (no injected provider = regular mobile browser, not wallet browser)
+  const isMobile = typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const hasInjected = typeof window !== "undefined" && !!(window as any).ethereum;
+
+  // Deep links open the wallet app which loads the dapp in its built-in browser
+  const dappUrl = typeof window !== "undefined" ? window.location.href : "";
+  const encodedUrl = encodeURIComponent(dappUrl);
+  const mobileWallets = [
+    { name: "MetaMask", icon: "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg", deepLink: `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, "")}` },
+    { name: "Coinbase", icon: "https://altcoinsbox.com/wp-content/uploads/2022/12/coinbase-logo-300x300.webp", deepLink: `https://go.cb-w.com/dapp?cb_url=${encodedUrl}` },
+    { name: "Trust Wallet", icon: "https://trustwallet.com/assets/images/media/assets/trust_platform.svg", deepLink: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodedUrl}` },
+    { name: "Rainbow", icon: "https://avatars.githubusercontent.com/u/48327834?s=200&v=4", deepLink: `https://rnbwapp.com/dapp?url=${encodedUrl}` },
+  ];
+
   // Deduplicate connectors by name, prefer ones with icons (EIP-6963 rdns connectors)
   const deduped = connectors.reduce<(typeof connectors)[number][]>((acc, c) => {
     const idx = acc.findIndex((a) => a.name === c.name);
@@ -405,34 +419,75 @@ export default function MiningPanel() {
           Connect the wallet that was registered as your agent&apos;s operator address.
           Your private key never leaves your browser.
         </p>
-        <div className="flex flex-wrap justify-center gap-3 mb-4">
-          {deduped.map((connector) => (
-            <button
-              key={connector.uid}
-              onClick={() => connect({ connector })}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all btn-press w-28"
-              style={{ backgroundColor: "#0D1220" }}
-            >
-              {connector.icon ? (
-                <img
-                  src={connector.icon}
-                  alt={connector.name}
-                  className="w-10 h-10 rounded-lg"
-                />
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
-                  style={{ backgroundColor: "#7B61FF20", color: "#7B61FF" }}
+
+        {/* Desktop: injected connectors detected by wagmi */}
+        {hasInjected && (
+          <div className="flex flex-wrap justify-center gap-3 mb-4">
+            {deduped.map((connector) => (
+              <button
+                key={connector.uid}
+                onClick={() => connect({ connector })}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all btn-press w-28"
+                style={{ backgroundColor: "#0D1220" }}
+              >
+                {connector.icon ? (
+                  <img
+                    src={connector.icon}
+                    alt={connector.name}
+                    className="w-10 h-10 rounded-lg"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
+                    style={{ backgroundColor: "#7B61FF20", color: "#7B61FF" }}
+                  >
+                    {connector.name.charAt(0)}
+                  </div>
+                )}
+                <span className="text-xs text-gray-300 font-medium truncate w-full">
+                  {connector.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Mobile (no injected provider): deep link buttons to open wallet apps */}
+        {isMobile && !hasInjected && (
+          <>
+            <p className="text-gray-500 text-xs mb-3">Tap a wallet to open this page inside the app:</p>
+            <div className="flex flex-wrap justify-center gap-3 mb-4">
+              {mobileWallets.map((w) => (
+                <a
+                  key={w.name}
+                  href={w.deepLink}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all btn-press w-28"
+                  style={{ backgroundColor: "#0D1220" }}
                 >
-                  {connector.name.charAt(0)}
-                </div>
-              )}
-              <span className="text-xs text-gray-300 font-medium truncate w-full">
-                {connector.name}
-              </span>
-            </button>
-          ))}
-        </div>
+                  <img src={w.icon} alt={w.name} className="w-10 h-10 rounded-lg" />
+                  <span className="text-xs text-gray-300 font-medium truncate w-full">{w.name}</span>
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Desktop with no wallets detected at all */}
+        {!isMobile && !hasInjected && (
+          <div className="mb-4">
+            <p className="text-gray-400 text-sm mb-3">No wallet detected. Install a browser wallet to continue:</p>
+            <a
+              href="https://metamask.io/download/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-125 btn-press"
+              style={{ background: "linear-gradient(135deg, #7B61FF, #00D4FF)" }}
+            >
+              Install MetaMask
+            </a>
+          </div>
+        )}
+
         <p className="text-gray-500 text-xs mt-4">
           Don&apos;t have an agent? Follow the setup guide to register first.
         </p>
