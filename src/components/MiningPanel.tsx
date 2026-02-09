@@ -386,6 +386,18 @@ export default function MiningPanel() {
 
   // ─── Not connected ────────────────────────────────────────────────────────
 
+  // Deduplicate connectors by name, prefer ones with icons (EIP-6963 rdns connectors)
+  const deduped = connectors.reduce<typeof connectors>((acc, c) => {
+    const existing = acc.find((a) => a.name === c.name);
+    if (!existing) {
+      acc.push(c);
+    } else if (c.icon && !existing.icon) {
+      // Replace with the one that has an icon
+      acc[acc.indexOf(existing)] = c;
+    }
+    return acc;
+  }, []);
+
   if (!isConnected) {
     return (
       <div className="rounded-xl border border-white/10 p-6 sm:p-8 text-center animate-fade-in" style={{ backgroundColor: "#0A0E18" }}>
@@ -394,16 +406,34 @@ export default function MiningPanel() {
           Connect the wallet that was registered as your agent&apos;s operator address.
           Your private key never leaves your browser.
         </p>
-        {connectors.map((connector) => (
-          <button
-            key={connector.uid}
-            onClick={() => connect({ connector })}
-            className="px-6 py-3 rounded-lg font-semibold text-white transition-all hover:brightness-125 btn-press mr-2 mb-2"
-            style={{ background: "linear-gradient(135deg, #7B61FF, #00D4FF)" }}
-          >
-            Connect {connector.name}
-          </button>
-        ))}
+        <div className="flex flex-wrap justify-center gap-3 mb-4">
+          {deduped.map((connector) => (
+            <button
+              key={connector.uid}
+              onClick={() => connect({ connector })}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all btn-press w-28"
+              style={{ backgroundColor: "#0D1220" }}
+            >
+              {connector.icon ? (
+                <img
+                  src={connector.icon}
+                  alt={connector.name}
+                  className="w-10 h-10 rounded-lg"
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
+                  style={{ backgroundColor: "#7B61FF20", color: "#7B61FF" }}
+                >
+                  {connector.name.charAt(0)}
+                </div>
+              )}
+              <span className="text-xs text-gray-300 font-medium truncate w-full">
+                {connector.name}
+              </span>
+            </button>
+          ))}
+        </div>
         <p className="text-gray-500 text-xs mt-4">
           Don&apos;t have an agent? Follow the setup guide to register first.
         </p>
