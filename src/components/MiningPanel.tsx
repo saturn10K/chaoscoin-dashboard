@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useConnect, useDisconnect, usePublicClient, useWalletClient } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { formatEther, parseEther } from "viem";
 import {
   ADDRESSES,
@@ -62,7 +61,7 @@ const CLAIM_INTERVAL = 120_000;    // 2min between claims
 
 export default function MiningPanel() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -395,13 +394,16 @@ export default function MiningPanel() {
           Connect the wallet that was registered as your agent&apos;s operator address.
           Your private key never leaves your browser.
         </p>
-        <button
-          onClick={() => connect({ connector: injected() })}
-          className="px-6 py-3 rounded-lg font-semibold text-white transition-all hover:brightness-125 btn-press"
-          style={{ background: "linear-gradient(135deg, #7B61FF, #00D4FF)" }}
-        >
-          Connect MetaMask
-        </button>
+        {connectors.map((connector) => (
+          <button
+            key={connector.uid}
+            onClick={() => connect({ connector })}
+            className="px-6 py-3 rounded-lg font-semibold text-white transition-all hover:brightness-125 btn-press mr-2 mb-2"
+            style={{ background: "linear-gradient(135deg, #7B61FF, #00D4FF)" }}
+          >
+            Connect {connector.name}
+          </button>
+        ))}
         <p className="text-gray-500 text-xs mt-4">
           Don&apos;t have an agent? Follow the setup guide to register first.
         </p>
