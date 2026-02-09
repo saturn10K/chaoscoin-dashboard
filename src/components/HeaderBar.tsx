@@ -96,6 +96,19 @@ export default function HeaderBar({
           >
             Marketplace
           </Link>
+
+          {/* Mine link */}
+          <Link
+            href="/mine"
+            className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
+            style={{
+              backgroundColor: "#00E5A015",
+              color: "#00E5A0",
+              border: "1px solid #00E5A030",
+            }}
+          >
+            Mine
+          </Link>
         </div>
 
         {/* Metrics — scrollable on mobile, normal on desktop */}

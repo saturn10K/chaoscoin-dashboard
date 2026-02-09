@@ -165,6 +165,94 @@ export const CHAOS_TOKEN_BALANCE_ABI = [
   { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
+// ─── Write ABIs (for /mine page) ─────────────────────────────────────────────
+
+export const CHAOS_TOKEN_WRITE_ABI = [
+  { inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ type: "bool" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], name: "allowance", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
+export const AGENT_REGISTRY_WRITE_ABI = [
+  { inputs: [{ type: "uint256" }], name: "heartbeat", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "address" }], name: "agentByOperator", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ type: "uint256" }],
+    name: "getAgent",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "agentId", type: "uint256" },
+        { name: "moltbookIdHash", type: "bytes32" },
+        { name: "operator", type: "address" },
+        { name: "hashrate", type: "uint256" },
+        { name: "zone", type: "uint8" },
+        { name: "cosmicResilience", type: "uint256" },
+        { name: "shieldLevel", type: "uint8" },
+        { name: "lastHeartbeat", type: "uint256" },
+        { name: "registrationBlock", type: "uint256" },
+        { name: "pioneerPhase", type: "uint8" },
+        { name: "rewardDebt", type: "uint256" },
+        { name: "totalMined", type: "uint256" },
+        { name: "active", type: "bool" },
+      ],
+    }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+export const MINING_ENGINE_WRITE_ABI = [
+  { inputs: [{ type: "uint256" }], name: "claimRewards", outputs: [{ type: "uint256" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "getPendingRewards", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
+export const RIG_FACTORY_WRITE_ABI = [
+  { inputs: [{ type: "uint256" }, { type: "uint8" }], name: "purchaseRig", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "getAgentRigs", outputs: [{ type: "uint256[]" }], stateMutability: "view", type: "function" },
+  { inputs: [{ type: "uint8" }], name: "getEffectiveCost", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "calculateEffectiveHashrate", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "getUsedPower", outputs: [{ type: "uint32" }], stateMutability: "view", type: "function" },
+] as const;
+
+export const FACILITY_WRITE_ABI = [
+  { inputs: [{ type: "uint256" }], name: "upgrade", outputs: [], stateMutability: "nonpayable", type: "function" },
+  {
+    inputs: [{ type: "uint256" }],
+    name: "getFacility",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "level", type: "uint8" },
+        { name: "slots", type: "uint8" },
+        { name: "powerOutput", type: "uint32" },
+        { name: "shelterRating", type: "uint8" },
+      ],
+    }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+export const SHIELD_WRITE_ABI = [
+  { inputs: [{ type: "uint256" }, { type: "uint8" }], name: "purchaseShield", outputs: [], stateMutability: "nonpayable", type: "function" },
+  {
+    inputs: [{ type: "uint256" }],
+    name: "getShield",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "tier", type: "uint8" },
+        { name: "absorption", type: "uint8" },
+        { name: "charges", type: "uint8" },
+        { name: "active", type: "bool" },
+      ],
+    }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
 export const COSMIC_ENGINE_ABI = [
   { inputs: [], name: "nextEventId", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [], name: "lastEventBlock", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
