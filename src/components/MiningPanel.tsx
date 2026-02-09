@@ -387,13 +387,12 @@ export default function MiningPanel() {
   // ─── Not connected ────────────────────────────────────────────────────────
 
   // Deduplicate connectors by name, prefer ones with icons (EIP-6963 rdns connectors)
-  const deduped = connectors.reduce<typeof connectors>((acc, c) => {
-    const existing = acc.find((a) => a.name === c.name);
-    if (!existing) {
+  const deduped = connectors.reduce<(typeof connectors)[number][]>((acc, c) => {
+    const idx = acc.findIndex((a) => a.name === c.name);
+    if (idx === -1) {
       acc.push(c);
-    } else if (c.icon && !existing.icon) {
-      // Replace with the one that has an icon
-      acc[acc.indexOf(existing)] = c;
+    } else if (c.icon && !acc[idx].icon) {
+      acc[idx] = c;
     }
     return acc;
   }, []);
