@@ -12,9 +12,8 @@ export interface CosmicEvent {
   processed: boolean;
 }
 
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 15_000; // 15s — multicall batching makes each poll fast
 const MAX_EVENTS = 50;
-const BATCH_SIZE = 10;
 
 export function useCosmicEvents(totalEvents: number) {
   const [events, setEvents] = useState<CosmicEvent[]>([]);
@@ -32,49 +31,47 @@ export function useCosmicEvents(totalEvents: number) {
     }
 
     try {
-      const results: CosmicEvent[] = [];
-      // Fetch most recent events first (reverse order), capped at MAX_EVENTS
+      // Fire ALL event reads at once — multicall batching on publicClient
+      // will combine them into a single RPC request
       const startId = Math.max(1, totalEvents - MAX_EVENTS + 1);
+      const calls: Promise<unknown>[] = [];
+      for (let id = totalEvents; id >= startId; id--) {
+        calls.push(
+          publicClient.readContract({
+            address: ADDRESSES.cosmicEngine,
+            abi: COSMIC_ENGINE_ABI,
+            functionName: "getEvent",
+            args: [BigInt(id)],
+          }).catch(() => null)
+        );
+      }
 
-      for (let batchStart = totalEvents; batchStart >= startId; batchStart -= BATCH_SIZE) {
-        const batchEnd = Math.max(batchStart - BATCH_SIZE + 1, startId);
-        const batch = [];
-        for (let id = batchStart; id >= batchEnd; id--) {
-          batch.push(
-            publicClient.readContract({
-              address: ADDRESSES.cosmicEngine,
-              abi: COSMIC_ENGINE_ABI,
-              functionName: "getEvent",
-              args: [BigInt(id)],
-            })
-          );
-        }
+      const rawResults = await Promise.all(calls);
 
-        const batchResults = await Promise.all(batch);
+      const results: CosmicEvent[] = [];
+      for (const raw of rawResults) {
+        if (!raw) continue;
+        const evt = raw as {
+          eventId: bigint;
+          eventType: number;
+          severityTier: number;
+          baseDamage: bigint;
+          originZone: number;
+          affectedZonesMask: number;
+          triggerBlock: bigint;
+          triggeredBy: `0x${string}`;
+          processed: boolean;
+        };
 
-        for (const raw of batchResults) {
-          const evt = raw as {
-            eventId: bigint;
-            eventType: number;
-            severityTier: number;
-            baseDamage: bigint;
-            originZone: number;
-            affectedZonesMask: number;
-            triggerBlock: bigint;
-            triggeredBy: `0x${string}`;
-            processed: boolean;
-          };
-
-          results.push({
-            eventId: Number(evt.eventId),
-            eventType: Number(evt.eventType),
-            severityTier: Number(evt.severityTier),
-            originZone: Number(evt.originZone),
-            affectedZonesMask: Number(evt.affectedZonesMask),
-            triggerBlock: evt.triggerBlock.toString(),
-            processed: evt.processed,
-          });
-        }
+        results.push({
+          eventId: Number(evt.eventId),
+          eventType: Number(evt.eventType),
+          severityTier: Number(evt.severityTier),
+          originZone: Number(evt.originZone),
+          affectedZonesMask: Number(evt.affectedZonesMask),
+          triggerBlock: evt.triggerBlock.toString(),
+          processed: evt.processed,
+        });
       }
 
       setEvents(results);

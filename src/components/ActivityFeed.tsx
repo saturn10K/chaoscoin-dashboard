@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useActivityFeed, ActivityItem } from "../hooks/useActivityFeed";
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
 import { CosmicEvent } from "../hooks/useCosmicEvents";
-import { publicClient } from "../lib/contracts";
 import { ZONE_NAMES, ZONE_COLORS, EVENT_TYPES, EVENT_ICONS, TIER_COLORS } from "../lib/constants";
 
 const MONAD_EXPLORER = "https://testnet.monadexplorer.com/tx/";
@@ -136,28 +135,16 @@ const PAGE_SIZE = 25;
 
 interface ActivityFeedProps {
   cosmicEvents?: CosmicEvent[];
+  currentBlock?: bigint;
 }
 
-export default function ActivityFeed({ cosmicEvents = [] }: ActivityFeedProps) {
+export default function ActivityFeed({ cosmicEvents = [], currentBlock = 0n }: ActivityFeedProps) {
   const { items: chainItems, loading: chainLoading } = useActivityFeed();
   const { alliances, events: allianceEvents, stats: allianceStats } = useAlliances();
   const { events: sabotageEvents, negotiations, stats: sabotageStats } = useSabotage();
-  const [currentBlock, setCurrentBlock] = useState<bigint>(0n);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [page, setPage] = useState(0);
   const [detailModal, setDetailModal] = useState<{ type: string; data: SabotageEvent | NegotiationEvent | AllianceEvent } | null>(null);
-
-  useEffect(() => {
-    const fetchBlock = async () => {
-      try {
-        const block = await publicClient.getBlockNumber();
-        setCurrentBlock(block);
-      } catch {}
-    };
-    fetchBlock();
-    const interval = setInterval(fetchBlock, 10_000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Merge everything into one timeline
   const unifiedItems = useMemo(() => {

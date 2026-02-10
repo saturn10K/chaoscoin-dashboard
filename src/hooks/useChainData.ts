@@ -37,30 +37,15 @@ export interface ChainData {
   zoneCounts: number[];
 }
 
-const POLL_INTERVAL = 15_000; // 15s — reduces RPC pressure
+const POLL_INTERVAL = 15_000; // 15s
 const ZERO = "0x0000000000000000000000000000000000000000" as const;
-
-// Sentinel value to distinguish "RPC failed" from "RPC returned 0"
-const FAILED = Symbol("failed");
-type MaybeResult<T> = T | typeof FAILED;
-
-async function safeRead<T>(call: Promise<T>): Promise<MaybeResult<T>> {
-  try {
-    return await call;
-  } catch {
-    return FAILED;
-  }
-}
-
-function val<T>(result: MaybeResult<T>, prev: T): T {
-  return result === FAILED ? prev : result;
-}
 
 export function useChainData() {
   const [data, setData] = useState<ChainData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const prevRef = useRef<ChainData | null>(null);
+  const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
     // Skip if addresses are zeros (not deployed)
@@ -73,87 +58,91 @@ export function useChainData() {
     const prev = prevRef.current;
 
     try {
-      // Fire ALL reads in one massive parallel batch to minimize round-trips
-      const [
-        totalMintedR, totalBurnedR, totalSupplyR,
-        activeCountR, nextAgentIdR, genesisPhaseR,
-        currentEraR, eventCooldownR,
-        totalHashrateR, emissionR,
-        nextEventIdR, lastEventBlockR,
-        miningB, rigPB, facUB, rigRB, shieldPB, migrationBB, marketplaceBB, sabotageBB,
-        ...zoneCountsR
-      ] = await Promise.all([
-        // Supply
-        safeRead(publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalMinted" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalBurned" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalSupply" })),
-        // Agents
-        safeRead(publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "activeAgentCount" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "nextAgentId" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "getGenesisPhase" })),
-        // Era
-        safeRead(publicClient.readContract({ address: ADDRESSES.eraManager, abi: ERA_MANAGER_ABI, functionName: "getCurrentEra" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.eraManager, abi: ERA_MANAGER_ABI, functionName: "getEventCooldown" })),
-        // Mining
-        safeRead(publicClient.readContract({ address: ADDRESSES.miningEngine, abi: MINING_ENGINE_ABI, functionName: "totalEffectiveHashrate" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.miningEngine, abi: MINING_ENGINE_ABI, functionName: "calculateAdaptiveEmission" })),
-        // Events
-        safeRead(publicClient.readContract({ address: ADDRESSES.cosmicEngine, abi: COSMIC_ENGINE_ABI, functionName: "nextEventId" })),
-        safeRead(publicClient.readContract({ address: ADDRESSES.cosmicEngine, abi: COSMIC_ENGINE_ABI, functionName: "lastEventBlock" })),
-        // Burns by source
+      // With multicall batching enabled on publicClient, all these concurrent
+      // readContract calls are automatically batched into a single multicall3
+      // RPC request (one network round-trip instead of 28+).
+      //
+      // We use individual readContract calls (not client.multicall) because
+      // it's simpler and viem's batch.multicall transport handles aggregation.
+      const results = await Promise.all([
+        // [0] Supply
+        publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalMinted" }).catch(() => prev ? BigInt(Math.round(parseFloat(prev.totalMinted) * 1e18)) : 0n),
+        // [1]
+        publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalBurned" }).catch(() => prev ? BigInt(Math.round(parseFloat(prev.totalBurned) * 1e18)) : 0n),
+        // [2]
+        publicClient.readContract({ address: ADDRESSES.chaosToken, abi: CHAOS_TOKEN_ABI, functionName: "totalSupply" }).catch(() => prev ? BigInt(Math.round(parseFloat(prev.circulatingSupply) * 1e18)) : 0n),
+        // [3] Agents
+        publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "activeAgentCount" }).catch(() => BigInt(prev?.activeAgentCount ?? 0)),
+        // [4]
+        publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "nextAgentId" }).catch(() => BigInt((prev?.totalAgents ?? 0) + 1)),
+        // [5]
+        publicClient.readContract({ address: ADDRESSES.agentRegistry, abi: AGENT_REGISTRY_ABI, functionName: "getGenesisPhase" }).catch(() => prev?.genesisPhase ?? 0),
+        // [6] Era
+        publicClient.readContract({ address: ADDRESSES.eraManager, abi: ERA_MANAGER_ABI, functionName: "getCurrentEra" }).catch(() => prev?.currentEra ?? 1),
+        // [7]
+        publicClient.readContract({ address: ADDRESSES.eraManager, abi: ERA_MANAGER_ABI, functionName: "getEventCooldown" }).catch(() => BigInt(prev?.eventCooldown ?? 75000)),
+        // [8] Mining
+        publicClient.readContract({ address: ADDRESSES.miningEngine, abi: MINING_ENGINE_ABI, functionName: "totalEffectiveHashrate" }).catch(() => BigInt(prev?.totalHashrate ?? "0")),
+        // [9]
+        publicClient.readContract({ address: ADDRESSES.miningEngine, abi: MINING_ENGINE_ABI, functionName: "calculateAdaptiveEmission" }).catch(() => prev ? BigInt(Math.round(parseFloat(prev.emissionPerBlock) * 1e18)) : 0n),
+        // [10] Events
+        publicClient.readContract({ address: ADDRESSES.cosmicEngine, abi: COSMIC_ENGINE_ABI, functionName: "nextEventId" }).catch(() => BigInt((prev?.totalEvents ?? 0) + 1)),
+        // [11]
+        publicClient.readContract({ address: ADDRESSES.cosmicEngine, abi: COSMIC_ENGINE_ABI, functionName: "lastEventBlock" }).catch(() => BigInt(prev?.lastEventBlock ?? "0")),
+        // [12-19] Burns by source
         ...(ADDRESSES.tokenBurner !== ZERO ? [
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [0] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [1] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [2] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [3] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [4] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [5] })),
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [7] })), // marketplace
-          safeRead(publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [8] })), // sabotage
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [0] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [1] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [2] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [3] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [4] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [5] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [7] }).catch(() => 0n),
+          publicClient.readContract({ address: ADDRESSES.tokenBurner, abi: TOKEN_BURNER_ABI, functionName: "burnsBySource", args: [8] }).catch(() => 0n),
         ] : [
           Promise.resolve(0n), Promise.resolve(0n), Promise.resolve(0n),
           Promise.resolve(0n), Promise.resolve(0n), Promise.resolve(0n),
           Promise.resolve(0n), Promise.resolve(0n),
         ]),
-        // Zone counts (8 zones)
+        // [20-27] Zone counts (8 zones)
         ...(ADDRESSES.zoneManager !== ZERO
           ? Array.from({ length: 8 }, (_, z) =>
-              safeRead(publicClient.readContract({
+              publicClient.readContract({
                 address: ADDRESSES.zoneManager,
                 abi: ZONE_MANAGER_ABI,
                 functionName: "getZoneAgentCount",
                 args: [z],
-              }))
+              }).catch(() => BigInt(prev?.zoneCounts[z] ?? 0))
             )
           : Array.from({ length: 8 }, () => Promise.resolve(0n))
         ),
       ]);
 
-      // Resolve each value — use previous data as fallback when RPC failed
-      const totalMinted = val(totalMintedR as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.totalMinted) * 1e18)) : 0n);
-      const totalBurned = val(totalBurnedR as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.totalBurned) * 1e18)) : 0n);
-      const totalSupply = val(totalSupplyR as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.circulatingSupply) * 1e18)) : 0n);
-      const activeCount = val(activeCountR as MaybeResult<bigint>, BigInt(prev?.activeAgentCount ?? 0));
-      const nextAgentId = val(nextAgentIdR as MaybeResult<bigint>, BigInt((prev?.totalAgents ?? 0) + 1));
-      const genesisPhase = val(genesisPhaseR as MaybeResult<number>, prev?.genesisPhase ?? 0);
-      const currentEra = val(currentEraR as MaybeResult<number>, prev?.currentEra ?? 1);
-      const eventCooldown = val(eventCooldownR as MaybeResult<bigint>, BigInt(prev?.eventCooldown ?? 75000));
-      const totalHashrate = val(totalHashrateR as MaybeResult<bigint>, BigInt(prev?.totalHashrate ?? "0"));
-      const emission = val(emissionR as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.emissionPerBlock) * 1e18)) : 0n);
-      const nextEventId = val(nextEventIdR as MaybeResult<bigint>, BigInt((prev?.totalEvents ?? 0) + 1));
-      const lastEventBlock = val(lastEventBlockR as MaybeResult<bigint>, BigInt(prev?.lastEventBlock ?? "0"));
-      const mining = val(miningB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.mining) * 1e18)) : 0n);
-      const rigP = val(rigPB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.rigPurchase) * 1e18)) : 0n);
-      const facU = val(facUB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.facilityUpgrade) * 1e18)) : 0n);
-      const rigR = val(rigRB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.rigRepair) * 1e18)) : 0n);
-      const shieldP = val(shieldPB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.shieldPurchase) * 1e18)) : 0n);
-      const migrationBurn = val(migrationBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.migration) * 1e18)) : 0n);
-      const marketplaceBurn = val(marketplaceBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.marketplace) * 1e18)) : 0n);
-      const sabotageBurn = val(sabotageBB as MaybeResult<bigint>, prev ? BigInt(Math.round(parseFloat(prev.burnsBySource.sabotage) * 1e18)) : 0n);
+      if (!isMountedRef.current) return;
 
-      const zoneCounts = (zoneCountsR as MaybeResult<bigint>[]).map((r, i) =>
-        Number(val(r, BigInt(prev?.zoneCounts[i] ?? 0)))
-      );
+      const totalMinted = results[0] as bigint;
+      const totalBurned = results[1] as bigint;
+      const totalSupply = results[2] as bigint;
+      const activeCount = results[3] as bigint;
+      const nextAgentId = results[4] as bigint;
+      const genesisPhase = results[5] as number;
+      const currentEra = results[6] as number;
+      const eventCooldown = results[7] as bigint;
+      const totalHashrate = results[8] as bigint;
+      const emission = results[9] as bigint;
+      const nextEventId = results[10] as bigint;
+      const lastEventBlock = results[11] as bigint;
+
+      const mining = results[12] as bigint;
+      const rigP = results[13] as bigint;
+      const facU = results[14] as bigint;
+      const rigR = results[15] as bigint;
+      const shieldP = results[16] as bigint;
+      const migrationBurn = results[17] as bigint;
+      const marketplaceBurn = results[18] as bigint;
+      const sabotageBurn = results[19] as bigint;
+
+      const zoneCounts = (results.slice(20, 28) as bigint[]).map(n => Number(n));
 
       const ratio = totalMinted > 0n ? Number((totalBurned * 10000n) / totalMinted) / 100 : 0;
 
@@ -197,9 +186,13 @@ export function useChainData() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchData();
     const interval = setInterval(fetchData, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    return () => {
+      isMountedRef.current = false;
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };

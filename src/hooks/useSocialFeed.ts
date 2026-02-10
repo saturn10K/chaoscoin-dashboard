@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://chaoscoin-production.up.railway.app";
-const POLL_INTERVAL = 8_000; // 8s — social feed updates frequently
+const POLL_INTERVAL = 12_000; // 12s
 
 export interface SocialMessage {
   id: string;
@@ -113,7 +113,7 @@ export function useAlliances() {
 
   useEffect(() => {
     fetchAlliances();
-    const interval = setInterval(fetchAlliances, 15_000);
+    const interval = setInterval(fetchAlliances, 20_000);
     return () => clearInterval(interval);
   }, [fetchAlliances]);
 

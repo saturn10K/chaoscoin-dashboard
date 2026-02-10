@@ -15,7 +15,7 @@ export interface ActivityItem {
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const POLL_INTERVAL = 10_000;
+const POLL_INTERVAL = 15_000;
 const MAX_ITEMS = 200;
 const LOOKBACK_BLOCKS = 5000n; // ~20-40 min of history on first load
 const STORAGE_KEY = "chaoscoin_activity_feed";

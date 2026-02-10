@@ -77,7 +77,7 @@ export function useSabotage() {
 
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 10_000);
+    const interval = setInterval(fetchAll, 20_000);
     return () => clearInterval(interval);
   }, [fetchAll]);
 

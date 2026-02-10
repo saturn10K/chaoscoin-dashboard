@@ -50,9 +50,10 @@ function useZonePulse(): Set<number> {
   }, []);
 
   useEffect(() => {
-    checkForNewMessages();
-    const interval = setInterval(checkForNewMessages, 8000);
-    return () => clearInterval(interval);
+    // Delay initial check to not compete with critical chain data fetch
+    const startTimer = setTimeout(checkForNewMessages, 2000);
+    const interval = setInterval(checkForNewMessages, 15_000);
+    return () => { clearTimeout(startTimer); clearInterval(interval); };
   }, [checkForNewMessages]);
 
   return pulsingZones;
@@ -147,7 +148,7 @@ export default function Dashboard() {
 
           {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations + cosmic */}
           <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-            <ActivityFeed cosmicEvents={events} />
+            <ActivityFeed cosmicEvents={events} currentBlock={currentBlock} />
           </div>
 
           <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>

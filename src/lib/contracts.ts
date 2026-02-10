@@ -14,6 +14,12 @@ export const monadTestnet = defineChain({
   blockExplorers: {
     default: { name: "MonadExplorer", url: "https://testnet.monadexplorer.com" },
   },
+  contracts: {
+    multicall3: {
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      blockCreated: 251449,
+    },
+  },
 });
 
 // Contract addresses — set after deployment
@@ -32,9 +38,17 @@ export const ADDRESSES = {
 } as const;
 
 // Public client for read-only chain queries
+// Uses multicall batching — viem automatically batches concurrent readContract
+// calls into a single multicall3 RPC request
 export const publicClient = createPublicClient({
   chain: monadTestnet,
   transport: http(rpcUrl),
+  batch: {
+    multicall: {
+      batchSize: 1024,     // up to 1024 calls per multicall
+      wait: 50,            // wait 50ms to collect calls into a batch
+    },
+  },
 });
 
 // ABIs — minimal for dashboard reads
