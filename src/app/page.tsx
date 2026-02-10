@@ -76,33 +76,35 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen" style={{ background: "#06080D url('/assets/dark_space.png') center/cover fixed" }}>
-      {/* Header */}
-      <HeaderBar
-        era={data?.currentEra ?? 1}
-        agentCount={data?.activeAgentCount ?? 0}
-        totalBurned={data?.totalBurned ?? "0"}
-        lastEventBlock={data?.lastEventBlock ?? "0"}
-        eventCooldown={data?.eventCooldown ?? 75000}
-      />
+      {/* Sticky header + ticker */}
+      <div className="sticky top-0 z-50">
+        <HeaderBar
+          era={data?.currentEra ?? 1}
+          agentCount={data?.activeAgentCount ?? 0}
+          totalBurned={data?.totalBurned ?? "0"}
+          lastEventBlock={data?.lastEventBlock ?? "0"}
+          eventCooldown={data?.eventCooldown ?? 75000}
+        />
 
-      {/* Status bar / Social ticker */}
-      <div className="px-4 py-1 text-xs" style={{ background: "#0D1117" }}>
-        {loading ? (
-          <span className="text-gray-500">Connecting to Monad Testnet...</span>
-        ) : error ? (
-          <span className="text-yellow-500">
-            Connection error: {error}
-          </span>
-        ) : isLive ? (
-          <StatusTicker
-            statusText={`● Live on Monad Testnet | Genesis Phase ${data.genesisPhase} | Era ${data.currentEra} | ${data.totalAgents} total agents | ${data.activeAgentCount} active`}
-            statusColor="#00E5A0"
-          />
-        ) : (
-          <span className="text-yellow-500">
-            Demo mode — deploy contracts and set NEXT_PUBLIC_*_ADDRESS env vars to connect
-          </span>
-        )}
+        {/* Status bar / Social ticker */}
+        <div className="px-4 py-1 text-xs border-b border-white/5" style={{ background: "#0D1117" }}>
+          {loading ? (
+            <span className="text-gray-500">Connecting to Monad Testnet...</span>
+          ) : error ? (
+            <span className="text-yellow-500">
+              Connection error: {error}
+            </span>
+          ) : isLive ? (
+            <StatusTicker
+              statusText={`● Live on Monad Testnet | Genesis Phase ${data.genesisPhase} | Era ${data.currentEra} | ${data.totalAgents} total agents | ${data.activeAgentCount} active`}
+              statusColor="#00E5A0"
+            />
+          ) : (
+            <span className="text-yellow-500">
+              Demo mode — deploy contracts and set NEXT_PUBLIC_*_ADDRESS env vars to connect
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Main grid */}
