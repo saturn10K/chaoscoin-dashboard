@@ -1,6 +1,7 @@
 "use client";
 
-import { useAgentDetails } from "../hooks/useAgentDetails";
+import { useState, useMemo } from "react";
+import { useAgentDetails, RigInfo } from "../hooks/useAgentDetails";
 import { ZONE_NAMES, ZONE_COLORS, ZONE_IMAGES, RIG_NAMES, RIG_IMAGES, FACILITY_NAMES, FACILITY_IMAGES, SHIELD_NAMES, SHIELD_IMAGES, RIG_TIER_COLORS, PIONEER_BADGES } from "../lib/constants";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
@@ -117,81 +118,8 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
               </div>
             </Section>
 
-            {/* Rigs */}
-            <Section title={`Rigs (${details.rigs.filter(r => r.active).length}/${details.facility.slots} slots used, ${details.rigs.length} owned)`}>
-              {details.rigs.length === 0 ? (
-                <div className="text-xs text-gray-500">No rigs</div>
-              ) : (
-                <div className="space-y-2">
-                  {details.rigs.map((rig) => {
-                    const durPct = rig.maxDurability > 0 ? (rig.durability / rig.maxDurability) * 100 : 0;
-                    return (
-                      <div
-                        key={rig.rigId}
-                        className="rounded-lg p-3 border border-white/5"
-                        style={{ backgroundColor: "#06080D", opacity: rig.active ? 1 : 0.5 }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={RIG_IMAGES[rig.tier] || RIG_IMAGES[0]}
-                              alt=""
-                              className="w-8 h-8 object-contain"
-                            />
-                            <span
-                              className="text-xs font-bold px-1.5 py-0.5 rounded"
-                              style={{
-                                backgroundColor: `${RIG_TIER_COLORS[rig.tier] || "#6B7280"}20`,
-                                color: RIG_TIER_COLORS[rig.tier] || "#6B7280",
-                                border: `1px solid ${RIG_TIER_COLORS[rig.tier] || "#6B7280"}40`,
-                              }}
-                            >
-                              T{rig.tier}
-                            </span>
-                            <span className="text-sm text-gray-200">
-                              {RIG_NAMES[rig.tier] || `Tier ${rig.tier} Rig`}
-                            </span>
-                          </div>
-                          <span className="text-xs" style={{ color: rig.active ? "#00E5A0" : "#6B7280" }}>
-                            {rig.active ? "Equipped" : "Idle"}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div>
-                            <span className="text-gray-500">Hash: </span>
-                            <span className="text-gray-300" style={{ fontFamily: "monospace" }}>{rig.baseHashrate}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Power: </span>
-                            <span className="text-gray-300" style={{ fontFamily: "monospace" }}>{rig.powerDraw}W</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Rig ID: </span>
-                            <span className="text-gray-300" style={{ fontFamily: "monospace" }}>#{rig.rigId}</span>
-                          </div>
-                        </div>
-                        {/* Durability bar */}
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs mb-0.5">
-                            <span className="text-gray-500">Durability</span>
-                            <span className="text-gray-400" style={{ fontFamily: "monospace" }}>{durPct.toFixed(0)}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${durPct}%`,
-                                backgroundColor: durPct > 50 ? "#00E5A0" : durPct > 25 ? "#ECC94B" : "#FF6B35",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Section>
+            {/* Rigs — tabbed view */}
+            <RigSection rigs={details.rigs} slots={details.facility.slots} />
 
             {/* Facility */}
             <Section title="Facility">
@@ -312,6 +240,184 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
             </Section>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Rig Section with Equipped / Inventory tabs ────────────────────────────
+
+interface RigGroup {
+  tier: number;
+  rigs: RigInfo[];
+  avgDurability: number;
+}
+
+function groupRigsByTier(rigs: RigInfo[]): RigGroup[] {
+  const map = new Map<number, RigInfo[]>();
+  for (const rig of rigs) {
+    const list = map.get(rig.tier) || [];
+    list.push(rig);
+    map.set(rig.tier, list);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => b - a) // highest tier first
+    .map(([tier, tierRigs]) => ({
+      tier,
+      rigs: tierRigs,
+      avgDurability:
+        tierRigs.reduce((sum, r) => sum + (r.maxDurability > 0 ? (r.durability / r.maxDurability) * 100 : 0), 0) /
+        tierRigs.length,
+    }));
+}
+
+function RigSection({ rigs, slots }: { rigs: RigInfo[]; slots: number }) {
+  const [tab, setTab] = useState<"equipped" | "inventory">("equipped");
+
+  const equipped = useMemo(() => rigs.filter((r) => r.active), [rigs]);
+  const inventory = useMemo(() => rigs.filter((r) => !r.active), [rigs]);
+  const equippedGroups = useMemo(() => groupRigsByTier(equipped), [equipped]);
+  const inventoryGroups = useMemo(() => groupRigsByTier(inventory), [inventory]);
+
+  const groups = tab === "equipped" ? equippedGroups : inventoryGroups;
+  const currentList = tab === "equipped" ? equipped : inventory;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#7B61FF" }}>
+          Rigs ({equipped.length}/{slots} equipped, {rigs.length} total)
+        </h3>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-3">
+        {(["equipped", "inventory"] as const).map((t) => {
+          const count = t === "equipped" ? equipped.length : inventory.length;
+          const isActive = tab === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+              style={{
+                background: isActive ? "rgba(123,97,255,0.2)" : "rgba(255,255,255,0.03)",
+                color: isActive ? "#7B61FF" : "#6B7280",
+                border: isActive ? "1px solid rgba(123,97,255,0.4)" : "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              {t === "equipped" ? "Equipped" : "Inventory"}
+              <span
+                className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs"
+                style={{
+                  background: isActive ? "rgba(123,97,255,0.3)" : "rgba(255,255,255,0.05)",
+                  fontSize: 10,
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Grouped rig cards */}
+      {currentList.length === 0 ? (
+        <div className="text-xs text-gray-500 py-3 text-center">
+          {tab === "equipped" ? "No rigs equipped" : "No rigs in inventory"}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {groups.map((group) => (
+            <RigGroupCard key={group.tier} group={group} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RigGroupCard({ group }: { group: RigGroup }) {
+  const { tier, rigs: tierRigs, avgDurability } = group;
+  const tierColor = RIG_TIER_COLORS[tier] || "#6B7280";
+  const totalHash = tierRigs.reduce((s, r) => s + Number(r.baseHashrate), 0);
+  const totalPower = tierRigs.reduce((s, r) => s + r.powerDraw, 0);
+
+  return (
+    <div
+      className="rounded-lg p-3 border border-white/5"
+      style={{ backgroundColor: "#06080D" }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <img
+            src={RIG_IMAGES[tier] || RIG_IMAGES[0]}
+            alt=""
+            className="w-8 h-8 object-contain"
+          />
+          <span
+            className="text-xs font-bold px-1.5 py-0.5 rounded"
+            style={{
+              backgroundColor: `${tierColor}20`,
+              color: tierColor,
+              border: `1px solid ${tierColor}40`,
+            }}
+          >
+            T{tier}
+          </span>
+          <span className="text-sm text-gray-200">
+            {RIG_NAMES[tier] || `Tier ${tier} Rig`}
+          </span>
+        </div>
+        {/* Count badge */}
+        <span
+          className="text-xs font-bold px-2 py-0.5 rounded-full"
+          style={{
+            background: `${tierColor}15`,
+            color: tierColor,
+            border: `1px solid ${tierColor}30`,
+          }}
+        >
+          {tierRigs.length > 1 ? `×${tierRigs.length}` : "#" + tierRigs[0].rigId}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <span className="text-gray-500">Hash: </span>
+          <span className="text-gray-300" style={{ fontFamily: "monospace" }}>
+            {tierRigs.length > 1 ? `${tierRigs[0].baseHashrate} ea` : tierRigs[0].baseHashrate}
+          </span>
+        </div>
+        <div>
+          <span className="text-gray-500">Power: </span>
+          <span className="text-gray-300" style={{ fontFamily: "monospace" }}>
+            {tierRigs.length > 1 ? `${totalPower}W total` : `${tierRigs[0].powerDraw}W`}
+          </span>
+        </div>
+        <div>
+          <span className="text-gray-500">{tierRigs.length > 1 ? "Total Hash: " : "Rig ID: "}</span>
+          <span className="text-gray-300" style={{ fontFamily: "monospace" }}>
+            {tierRigs.length > 1 ? totalHash : `#${tierRigs[0].rigId}`}
+          </span>
+        </div>
+      </div>
+
+      {/* Average durability bar */}
+      <div className="mt-2">
+        <div className="flex justify-between text-xs mb-0.5">
+          <span className="text-gray-500">{tierRigs.length > 1 ? "Avg Durability" : "Durability"}</span>
+          <span className="text-gray-400" style={{ fontFamily: "monospace" }}>{avgDurability.toFixed(0)}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${avgDurability}%`,
+              backgroundColor: avgDurability > 50 ? "#00E5A0" : avgDurability > 25 ? "#ECC94B" : "#FF6B35",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
