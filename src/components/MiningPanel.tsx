@@ -76,6 +76,7 @@ export default function MiningPanel() {
   const [facility, setFacility] = useState<FacilityData | null>(null);
   const [shield, setShield] = useState<ShieldData | null>(null);
   const [balance, setBalance] = useState<bigint>(0n);
+  const [monBalance, setMonBalance] = useState<bigint | null>(null);
   const [pendingRewards, setPendingRewards] = useState<bigint>(0n);
   const [rigCount, setRigCount] = useState(0);
   const [effectiveHashrate, setEffectiveHashrate] = useState<bigint>(0n);
@@ -87,7 +88,22 @@ export default function MiningPanel() {
   const [txPending, setTxPending] = useState<string | null>(null);
 
   const miningRef = useRef(false);
+  const heartbeatPendingRef = useRef(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // ─── Check MON (gas) balance on connect ──────────────────────────────────
+  useEffect(() => {
+    if (!address || !publicClient || wrongChain) { setMonBalance(null); return; }
+    const check = async () => {
+      try {
+        const bal = await publicClient.getBalance({ address });
+        setMonBalance(bal);
+      } catch { setMonBalance(null); }
+    };
+    check();
+    const interval = setInterval(check, 30_000);
+    return () => clearInterval(interval);
+  }, [address, publicClient, wrongChain]);
 
   // Auto-scroll logs
   useEffect(() => {
@@ -195,7 +211,9 @@ export default function MiningPanel() {
 
   const doHeartbeat = useCallback(async () => {
     if (!walletClient || !agentId || !publicClient) return false;
+    if (heartbeatPendingRef.current) { log("Heartbeat already pending, skipping", "warn"); return false; }
     try {
+      heartbeatPendingRef.current = true;
       setTxPending("heartbeat");
       const hash = await walletClient.writeContract({
         address: ADDRESSES.agentRegistry,
@@ -204,13 +222,14 @@ export default function MiningPanel() {
         args: [BigInt(agentId)],
       });
       log(`Heartbeat sent: ${hash.slice(0, 10)}...`, "info");
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
       log("Heartbeat confirmed", "success");
       return true;
     } catch (err: any) {
       log(`Heartbeat failed: ${err.message?.slice(0, 60)}`, "error");
       return false;
     } finally {
+      heartbeatPendingRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log]);
@@ -226,7 +245,7 @@ export default function MiningPanel() {
         args: [BigInt(agentId)],
       });
       log(`Claiming rewards: ${hash.slice(0, 10)}...`, "info");
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
       log("Rewards claimed!", "success");
       return true;
     } catch (err: any) {
@@ -246,28 +265,57 @@ export default function MiningPanel() {
     let claimCounter = 0;
 
     const loop = async () => {
+      let consecutiveErrors = 0;
       while (miningRef.current) {
-        // Heartbeat
-        await doHeartbeat();
-        if (!miningRef.current) break;
+        try {
+          // Heartbeat
+          const hbOk = await doHeartbeat();
+          if (!miningRef.current) break;
 
-        claimCounter++;
-        // Claim every 4 heartbeats (30s * 4 = 2min)
-        if (claimCounter >= 4) {
-          await doClaim();
-          claimCounter = 0;
+          if (hbOk) {
+            consecutiveErrors = 0;
+            claimCounter++;
+            // Claim every 4 heartbeats (30s * 4 = 2min)
+            if (claimCounter >= 4) {
+              await doClaim();
+              claimCounter = 0;
+            }
+          } else {
+            consecutiveErrors++;
+            if (consecutiveErrors >= 5) {
+              log("Too many consecutive failures — stopping mining. Check your MON balance for gas.", "error");
+              miningRef.current = false;
+              setMining(false);
+              break;
+            }
+          }
+
+          // Refresh data
+          await refreshAgentData();
+          if (!miningRef.current) break;
+
+          // Wait 30 seconds
+          await new Promise((r) => setTimeout(r, HEARTBEAT_INTERVAL));
+        } catch (err: any) {
+          log(`Mining loop error: ${err.message?.slice(0, 60)}`, "error");
+          consecutiveErrors++;
+          if (consecutiveErrors >= 5) {
+            log("Mining stopped after repeated errors.", "error");
+            miningRef.current = false;
+            setMining(false);
+            break;
+          }
+          // Back off before retrying
+          await new Promise((r) => setTimeout(r, HEARTBEAT_INTERVAL));
         }
-
-        // Refresh data
-        await refreshAgentData();
-        if (!miningRef.current) break;
-
-        // Wait 30 seconds
-        await new Promise((r) => setTimeout(r, HEARTBEAT_INTERVAL));
       }
     };
 
-    loop();
+    loop().catch((err) => {
+      log(`Mining crashed: ${err.message?.slice(0, 60)}`, "error");
+      miningRef.current = false;
+      setMining(false);
+    });
   }, [walletClient, agentId, doHeartbeat, doClaim, refreshAgentData, log]);
 
   const stopMining = useCallback(() => {
@@ -290,6 +338,12 @@ export default function MiningPanel() {
         args: [tier],
       }) as bigint;
 
+      // Check balance
+      if (balance < cost) {
+        log(`Not enough CHAOS — need ${formatEther(cost)}, have ${formatEther(balance)}`, "error");
+        return;
+      }
+
       // Approve
       log(`Approving ${formatEther(cost)} CHAOS for ${RIG_NAMES[tier]}...`, "info");
       let hash = await walletClient.writeContract({
@@ -298,7 +352,7 @@ export default function MiningPanel() {
         functionName: "approve",
         args: [ADDRESSES.rigFactory, cost],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
 
       // Purchase
       log(`Purchasing ${RIG_NAMES[tier]}...`, "info");
@@ -308,7 +362,7 @@ export default function MiningPanel() {
         functionName: "purchaseRig",
         args: [BigInt(agentId), tier],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
       log(`${RIG_NAMES[tier]} purchased!`, "success");
       await refreshAgentData();
     } catch (err: any) {
@@ -322,15 +376,18 @@ export default function MiningPanel() {
     if (!walletClient || !agentId || !publicClient) return;
     try {
       setTxPending("facility");
-      // Approve a large amount for facility upgrade
-      const approveAmt = parseEther("100000");
+      if (balance === 0n) {
+        log("No CHAOS balance — mine some rewards first", "error");
+        return;
+      }
+      // Approve current balance (contract will use what it needs)
       let hash = await walletClient.writeContract({
         address: ADDRESSES.chaosToken,
         abi: CHAOS_TOKEN_WRITE_ABI,
         functionName: "approve",
-        args: [ADDRESSES.facilityManager, approveAmt],
+        args: [ADDRESSES.facilityManager, balance],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
 
       log("Upgrading facility...", "info");
       hash = await walletClient.writeContract({
@@ -339,7 +396,7 @@ export default function MiningPanel() {
         functionName: "upgrade",
         args: [BigInt(agentId)],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
       log("Facility upgraded!", "success");
       await refreshAgentData();
     } catch (err: any) {
@@ -353,14 +410,17 @@ export default function MiningPanel() {
     if (!walletClient || !agentId || !publicClient) return;
     try {
       setTxPending(`shield-${tier}`);
-      const approveAmt = parseEther("100000");
+      if (balance === 0n) {
+        log("No CHAOS balance — mine some rewards first", "error");
+        return;
+      }
       let hash = await walletClient.writeContract({
         address: ADDRESSES.chaosToken,
         abi: CHAOS_TOKEN_WRITE_ABI,
         functionName: "approve",
-        args: [ADDRESSES.shieldManager, approveAmt],
+        args: [ADDRESSES.shieldManager, balance],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
 
       log(`Purchasing ${SHIELD_NAMES[tier]} shield...`, "info");
       hash = await walletClient.writeContract({
@@ -369,7 +429,7 @@ export default function MiningPanel() {
         functionName: "purchaseShield",
         args: [BigInt(agentId), tier],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
       log(`${SHIELD_NAMES[tier]} activated!`, "success");
       await refreshAgentData();
     } catch (err: any) {
@@ -536,14 +596,49 @@ export default function MiningPanel() {
 
   if (!agentId || !agent) {
     return (
-      <div className="rounded-xl border border-white/10 p-6 sm:p-8 text-center" style={{ backgroundColor: "#0A0E18" }}>
-        <h2 className="text-lg font-bold text-white mb-2">No Agent Found</h2>
-        <p className="text-gray-400 text-sm mb-4">
-          Wallet <span className="text-white font-mono text-xs">{address?.slice(0, 6)}...{address?.slice(-4)}</span> is not registered as an agent operator.
-        </p>
-        <p className="text-gray-500 text-xs mb-4">
-          Register via the onboarding API, then come back here.
-        </p>
+      <div className="rounded-xl border border-white/10 p-6 sm:p-8" style={{ backgroundColor: "#0A0E18" }}>
+        <div className="text-center mb-5">
+          <h2 className="text-lg font-bold text-white mb-2">No Agent Found</h2>
+          <p className="text-gray-400 text-sm">
+            Wallet <span className="text-white font-mono text-xs">{address?.slice(0, 6)}...{address?.slice(-4)}</span> is not registered as an agent operator.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-white/5 p-4 mb-5 space-y-3" style={{ backgroundColor: "#0D1220" }}>
+          <h3 className="text-sm font-semibold text-gray-300">How to Register</h3>
+          <div className="flex gap-3 items-start">
+            <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#7B61FF30", color: "#7B61FF" }}>1</span>
+            <div>
+              <div className="text-xs text-gray-300 font-medium">Get a wallet via the onboarding API</div>
+              <div className="text-[10px] text-gray-500 mt-0.5 font-mono break-all">POST /api/onboard</div>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#00E5A030", color: "#00E5A0" }}>2</span>
+            <div>
+              <div className="text-xs text-gray-300 font-medium">Fund with MON for gas fees</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                Get testnet MON from{" "}
+                <a href="https://faucet.monad.xyz" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#00D4FF" }}>faucet.monad.xyz</a>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#00D4FF30", color: "#00D4FF" }}>3</span>
+            <div>
+              <div className="text-xs text-gray-300 font-medium">Register the agent on-chain</div>
+              <div className="text-[10px] text-gray-500 mt-0.5 font-mono break-all">POST /api/onboard/register</div>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#FFA50030", color: "#FFA500" }}>4</span>
+            <div>
+              <div className="text-xs text-gray-300 font-medium">Import wallet here and start mining</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">Add the private key to MetaMask, then reconnect.</div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-3 justify-center">
           <button
             onClick={() => lookupAgent()}
@@ -626,6 +721,29 @@ export default function MiningPanel() {
           </div>
         </div>
       </div>
+
+      {/* MON balance warning */}
+      {monBalance !== null && monBalance < parseEther("0.01") && (
+        <div className="rounded-xl border border-yellow-500/30 p-3 flex items-center gap-3" style={{ backgroundColor: "#1a1500" }}>
+          <span className="text-yellow-400 text-lg flex-shrink-0">&#9888;</span>
+          <div className="flex-1">
+            <div className="text-yellow-400 text-sm font-semibold">Low MON Balance</div>
+            <div className="text-yellow-400/70 text-xs">
+              {monBalance === 0n ? "Wallet has 0 MON." : `Only ${parseFloat(formatEther(monBalance)).toFixed(4)} MON remaining.`}
+              {" "}You need MON for transaction gas fees. Mining will fail without gas.
+            </div>
+          </div>
+          <a
+            href="https://faucet.monad.xyz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-black flex-shrink-0"
+            style={{ background: "#F59E0B" }}
+          >
+            Get MON
+          </a>
+        </div>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

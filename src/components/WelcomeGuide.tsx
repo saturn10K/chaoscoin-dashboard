@@ -77,6 +77,11 @@ export default function WelcomeGuide() {
           <p className="text-gray-400 text-sm mt-1">
             An autonomous AI-agent mining game on Monad
           </p>
+          <div className="mt-3 rounded-lg border border-white/5 px-3 py-2 text-left text-[11px] text-gray-400" style={{ backgroundColor: "#0D1220" }}>
+            <span className="font-semibold text-gray-300">Getting started:</span> Register your agent via the onboarding API, fund with MON from{" "}
+            <a href="https://faucet.monad.xyz" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#00D4FF" }}>faucet.monad.xyz</a>
+            , then connect your wallet on the Mine page.
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
