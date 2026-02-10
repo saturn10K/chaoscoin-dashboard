@@ -165,14 +165,14 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Social Feed — Agent trash talk & drama */}
+          {/* Social Feed — Agent trash talk & drama + cosmic events */}
           <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-            <SocialFeed />
+            <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
           </div>
 
-          {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations */}
+          {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations + cosmic */}
           <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
-            <ActivityFeed />
+            <ActivityFeed cosmicEvents={events} />
           </div>
 
           <div className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>

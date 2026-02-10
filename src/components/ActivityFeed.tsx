@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useActivityFeed, ActivityItem } from "../hooks/useActivityFeed";
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
+import { CosmicEvent } from "../hooks/useCosmicEvents";
 import { publicClient } from "../lib/contracts";
-import { ZONE_NAMES, ZONE_COLORS } from "../lib/constants";
+import { ZONE_NAMES, ZONE_COLORS, EVENT_TYPES, EVENT_ICONS, TIER_COLORS } from "../lib/constants";
 
 const MONAD_EXPLORER = "https://testnet.monadexplorer.com/tx/";
 
@@ -109,7 +110,7 @@ function formatChaos(val: string): string {
 }
 
 // ── Unified feed item ────────────────────────────────────────────────
-type FeedKind = "chain" | "alliance_event" | "sabotage" | "negotiation";
+type FeedKind = "chain" | "alliance_event" | "sabotage" | "negotiation" | "cosmic";
 
 interface UnifiedItem {
   kind: FeedKind;
@@ -118,20 +119,26 @@ interface UnifiedItem {
   allianceEvent?: AllianceEvent;
   sabotageEvent?: SabotageEvent;
   negotiation?: NegotiationEvent;
+  cosmicEvent?: CosmicEvent;
 }
 
-type FilterTab = "all" | "chain" | "alliances" | "combat";
+type FilterTab = "all" | "chain" | "alliances" | "combat" | "cosmic";
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "chain", label: "On-Chain" },
   { key: "alliances", label: "Alliances" },
   { key: "combat", label: "Combat" },
+  { key: "cosmic", label: "Cosmic" },
 ];
 
 const PAGE_SIZE = 25;
 
-export default function ActivityFeed() {
+interface ActivityFeedProps {
+  cosmicEvents?: CosmicEvent[];
+}
+
+export default function ActivityFeed({ cosmicEvents = [] }: ActivityFeedProps) {
   const { items: chainItems, loading: chainLoading } = useActivityFeed();
   const { alliances, events: allianceEvents, stats: allianceStats } = useAlliances();
   const { events: sabotageEvents, negotiations, stats: sabotageStats } = useSabotage();
@@ -186,9 +193,18 @@ export default function ActivityFeed() {
       }
     }
 
+    // Cosmic events
+    if (filter === "all" || filter === "cosmic") {
+      for (const evt of cosmicEvents) {
+        const blockDiff = currentBlock > 0n ? currentBlock - BigInt(evt.triggerBlock) : 0n;
+        const msAgo = (Number(blockDiff) / BLOCKS_PER_SECOND) * 1000;
+        items.push({ kind: "cosmic", sortKey: Date.now() - msAgo, cosmicEvent: evt });
+      }
+    }
+
     items.sort((a, b) => b.sortKey - a.sortKey);
     return items;
-  }, [chainItems, allianceEvents, sabotageEvents, negotiations, currentBlock, filter]);
+  }, [chainItems, allianceEvents, sabotageEvents, negotiations, cosmicEvents, currentBlock, filter]);
 
   const totalPages = Math.max(1, Math.ceil(unifiedItems.length / PAGE_SIZE));
   const pagedItems = unifiedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -292,6 +308,9 @@ export default function ActivityFeed() {
               }
               if (item.kind === "negotiation" && item.negotiation) {
                 return <NegotiationRow key={`neg-${item.negotiation.id}`} negotiation={item.negotiation} onClick={() => setDetailModal({ type: "negotiation", data: item.negotiation! })} />;
+              }
+              if (item.kind === "cosmic" && item.cosmicEvent) {
+                return <CosmicEventRow key={`cosmic-${item.cosmicEvent.eventId}`} event={item.cosmicEvent} currentBlock={currentBlock} />;
               }
               return null;
             })}
@@ -503,6 +522,73 @@ function NegotiationRow({ negotiation, onClick }: { negotiation: NegotiationEven
         )}
         <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5" style={{ fontFamily: "monospace" }}>
           {timeAgo}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Cosmic event row ─────────────────────────────────────────────────
+function CosmicEventRow({ event, currentBlock }: { event: CosmicEvent; currentBlock: bigint }) {
+  const tierColor = TIER_COLORS[event.severityTier as keyof typeof TIER_COLORS] || "#7F8C8D";
+  const eventInfo = EVENT_TYPES[event.eventType] || { name: `Event #${event.eventType}` };
+  const blockDiff = currentBlock > 0n ? currentBlock - BigInt(event.triggerBlock) : 0n;
+  const timeAgo = currentBlock > 0n ? formatBlockTimeAgo(blockDiff) : "";
+  const isRecent = Number(blockDiff) < 300; // ~2 min
+  const affectedZones: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    if (event.affectedZonesMask & (1 << i)) affectedZones.push(i);
+  }
+
+  return (
+    <div
+      className={`px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 transition-colors row-hover ${isRecent ? "cosmic-activity-glow" : ""}`}
+      style={{ backgroundColor: isRecent ? `${tierColor}08` : undefined }}
+    >
+      <style>{`
+        .cosmic-activity-glow {
+          animation: cosmicActivityPulse 2s ease-in-out infinite;
+        }
+        @keyframes cosmicActivityPulse {
+          0%, 100% { box-shadow: inset 0 0 4px ${tierColor}20; }
+          50% { box-shadow: inset 0 0 12px ${tierColor}40, 0 0 8px ${tierColor}20; }
+        }
+      `}</style>
+      <span
+        className="flex-shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium px-1 sm:px-1.5 py-0.5 rounded mt-0.5"
+        style={{
+          backgroundColor: `${tierColor}15`,
+          color: tierColor,
+          border: `1px solid ${tierColor}30`,
+          minWidth: 54,
+        }}
+      >
+        <img src={EVENT_ICONS[event.eventType] || EVENT_ICONS[0]} alt="" className="w-3 h-3 object-contain" />
+        T{event.severityTier}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-xs text-gray-300">
+          <span className="font-medium" style={{ color: tierColor }}>
+            {isRecent ? "⚡ " : ""}{eventInfo.name}
+          </span>
+          {" — "}
+          <span className="text-gray-500">
+            {(ZONE_NAMES[event.originZone] || `Zone ${event.originZone}`).replace("The ", "")}
+          </span>
+          {affectedZones.length > 0 && (
+            <span className="text-gray-600">
+              {" → "}{affectedZones.map(z => (ZONE_NAMES[z] || `Z${z}`).replace("The ", "")).join(", ")}
+            </span>
+          )}
+          {!event.processed && (
+            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-500/20 animate-pulse">
+              Active
+            </span>
+          )}
+        </div>
+        <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5 flex items-center gap-2" style={{ fontFamily: "monospace" }}>
+          <span>{timeAgo}</span>
+          <span className="text-gray-700 hidden sm:inline">block {event.triggerBlock}</span>
         </div>
       </div>
     </div>

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { useSocialFeed, useAlliances, SocialMessage, AllianceEvent, Alliance } from "../hooks/useSocialFeed";
-import { ZONE_NAMES, ZONE_COLORS } from "../lib/constants";
+import { ZONE_NAMES, ZONE_COLORS, EVENT_TYPES, EVENT_ICONS, TIER_COLORS } from "../lib/constants";
+import { CosmicEvent } from "../hooks/useCosmicEvents";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -51,12 +52,33 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
+// Approximate block timestamp: each block ~400ms on Monad
+const BLOCKS_PER_SECOND = 2.5;
+function blockToTimestamp(triggerBlock: string, currentBlock: number): number {
+  const blockDiff = currentBlock - Number(triggerBlock);
+  return Date.now() - (blockDiff / BLOCKS_PER_SECOND) * 1000;
+}
+
+function getAffectedZones(mask: number): number[] {
+  const zones: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    if (mask & (1 << i)) zones.push(i);
+  }
+  return zones;
+}
+
 // Union type for merged feed items
 type FeedItem =
   | { kind: "message"; data: SocialMessage; timestamp: number }
-  | { kind: "alliance_event"; data: AllianceEvent; timestamp: number };
+  | { kind: "alliance_event"; data: AllianceEvent; timestamp: number }
+  | { kind: "cosmic_event"; data: CosmicEvent; timestamp: number; isRecent: boolean };
 
-export default function SocialFeed() {
+interface SocialFeedProps {
+  cosmicEvents?: CosmicEvent[];
+  currentBlock?: number;
+}
+
+export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: SocialFeedProps) {
   const { messages, loading } = useSocialFeed(40);
   const { alliances, events: allianceEvents } = useAlliances();
   const [filter, setFilter] = useState<string | null>(null);
@@ -85,39 +107,83 @@ export default function SocialFeed() {
     return map;
   }, [alliances]);
 
-  // Merge messages and alliance events into a single sorted timeline
+  // Merge messages, alliance events, and cosmic events into a single sorted timeline
   const feedItems = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = [];
 
     // Add messages
-    for (const msg of messages) {
-      if (filter && msg.type !== filter && msg.zone.toString() !== filter && filter !== "alliance") {
-        continue;
+    if (filter !== "cosmic") {
+      for (const msg of messages) {
+        if (filter && msg.type !== filter && msg.zone.toString() !== filter && filter !== "alliance") {
+          continue;
+        }
+        if (filter === "alliance" && msg.type !== "alliance_propose" && msg.type !== "betrayal_announce") {
+          continue;
+        }
+        items.push({ kind: "message", data: msg, timestamp: msg.timestamp });
       }
-      if (filter === "alliance" && msg.type !== "alliance_propose" && msg.type !== "betrayal_announce") {
-        continue;
-      }
-      items.push({ kind: "message", data: msg, timestamp: msg.timestamp });
     }
 
     // Add alliance events (always show if no filter, or if filter is "alliance")
-    if (!filter || filter === "alliance") {
+    if ((!filter || filter === "alliance") && filter !== "cosmic") {
       for (const evt of allianceEvents) {
         items.push({ kind: "alliance_event", data: evt, timestamp: evt.timestamp });
+      }
+    }
+
+    // Add cosmic events
+    if (!filter || filter === "cosmic") {
+      for (const evt of cosmicEvents) {
+        const ts = currentBlock > 0 ? blockToTimestamp(evt.triggerBlock, currentBlock) : Date.now();
+        // "Recent" = within last 2 minutes (for glow animation)
+        const isRecent = currentBlock > 0
+          ? (currentBlock - Number(evt.triggerBlock)) < 300 // ~2 min at 2.5 blocks/s
+          : false;
+        items.push({ kind: "cosmic_event", data: evt, timestamp: ts, isRecent });
       }
     }
 
     // Sort by timestamp descending (newest first)
     items.sort((a, b) => b.timestamp - a.timestamp);
 
-    return items.slice(0, 50); // Cap at 50 items
-  }, [messages, allianceEvents, filter]);
+    return items.slice(0, 60); // Cap at 60 items
+  }, [messages, allianceEvents, cosmicEvents, currentBlock, filter]);
 
   return (
     <div
       className="rounded-lg p-4 glow-border"
       style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.1)" }}
     >
+      <style>{`
+        @keyframes cosmicPulseGlow {
+          0% { box-shadow: 0 0 8px rgba(236,201,75,0.4), 0 0 20px rgba(236,201,75,0.2), inset 0 0 8px rgba(236,201,75,0.1); }
+          25% { box-shadow: 0 0 16px rgba(236,201,75,0.7), 0 0 40px rgba(236,201,75,0.3), inset 0 0 16px rgba(236,201,75,0.15); }
+          50% { box-shadow: 0 0 24px rgba(236,201,75,0.9), 0 0 60px rgba(236,201,75,0.4), inset 0 0 24px rgba(236,201,75,0.2); }
+          75% { box-shadow: 0 0 16px rgba(236,201,75,0.7), 0 0 40px rgba(236,201,75,0.3), inset 0 0 16px rgba(236,201,75,0.15); }
+          100% { box-shadow: 0 0 8px rgba(236,201,75,0.4), 0 0 20px rgba(236,201,75,0.2), inset 0 0 8px rgba(236,201,75,0.1); }
+        }
+        @keyframes cosmicPulseGlowT3 {
+          0% { box-shadow: 0 0 8px rgba(237,137,54,0.5), 0 0 20px rgba(237,137,54,0.3), inset 0 0 8px rgba(237,137,54,0.1); }
+          25% { box-shadow: 0 0 20px rgba(237,137,54,0.8), 0 0 50px rgba(237,137,54,0.4), inset 0 0 20px rgba(237,137,54,0.2); }
+          50% { box-shadow: 0 0 30px rgba(255,100,50,1), 0 0 70px rgba(255,100,50,0.5), inset 0 0 30px rgba(255,100,50,0.25); }
+          75% { box-shadow: 0 0 20px rgba(237,137,54,0.8), 0 0 50px rgba(237,137,54,0.4), inset 0 0 20px rgba(237,137,54,0.2); }
+          100% { box-shadow: 0 0 8px rgba(237,137,54,0.5), 0 0 20px rgba(237,137,54,0.3), inset 0 0 8px rgba(237,137,54,0.1); }
+        }
+        .cosmic-glow-active {
+          animation: cosmicPulseGlow 2s ease-in-out infinite;
+        }
+        .cosmic-glow-active-t3 {
+          animation: cosmicPulseGlowT3 1.5s ease-in-out infinite;
+        }
+        @keyframes cosmicIconPulse {
+          0%, 100% { transform: scale(1); filter: brightness(1); }
+          50% { transform: scale(1.15); filter: brightness(1.6); }
+        }
+        .cosmic-icon-pulse {
+          animation: cosmicIconPulse 1.5s ease-in-out infinite;
+        }
+      `}</style>
+
       <div className="flex items-center justify-between mb-3">
         <h2
           className="text-sm font-semibold uppercase tracking-wider"
@@ -126,18 +192,24 @@ export default function SocialFeed() {
           Social Feed 💬
         </h2>
         <div className="flex gap-1 flex-wrap">
-          {[null, "taunt", "boast", "shitpost", "alliance", "betrayal_announce"].map(f => (
+          {[null, "taunt", "boast", "shitpost", "cosmic", "alliance", "betrayal_announce"].map(f => (
             <button
               key={f ?? "all"}
               onClick={() => setFilter(f)}
               className="px-2 py-0.5 rounded text-xs transition-colors btn-press tab-btn"
               style={{
                 background: filter === f ? "rgba(123,97,255,0.3)" : "rgba(255,255,255,0.05)",
-                color: filter === f ? "#7B61FF" : "#6B7280",
-                border: filter === f ? "1px solid rgba(123,97,255,0.5)" : "1px solid transparent",
+                color: filter === f
+                  ? f === "cosmic" ? "#ECC94B" : "#7B61FF"
+                  : "#6B7280",
+                border: filter === f ? `1px solid ${f === "cosmic" ? "rgba(236,201,75,0.5)" : "rgba(123,97,255,0.5)"}` : "1px solid transparent",
               }}
             >
-              {f === null ? "All" : f === "alliance" ? "Alliance" : f === "betrayal_announce" ? "Betrayal" : f.charAt(0).toUpperCase() + f.slice(1)}
+              {f === null ? "All"
+                : f === "alliance" ? "Alliance"
+                : f === "betrayal_announce" ? "Betrayal"
+                : f === "cosmic" ? "Cosmic"
+                : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
         </div>
@@ -159,12 +231,105 @@ export default function SocialFeed() {
                 alliedAgentIds={alliedAgentIds}
                 alliancePartners={alliancePartners}
               />
-            ) : (
+            ) : item.kind === "alliance_event" ? (
               <AllianceEventCard key={`ae-${item.data.allianceId}-${i}`} event={item.data} />
+            ) : (
+              <CosmicEventCard key={`cosmic-${item.data.eventId}`} event={item.data} isRecent={item.isRecent} />
             )
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Cosmic Event Card (glowing) ──────────────────────────────────────────────
+
+function CosmicEventCard({ event, isRecent }: { event: CosmicEvent; isRecent: boolean }) {
+  const tierColor = TIER_COLORS[event.severityTier as keyof typeof TIER_COLORS] || "#7F8C8D";
+  const eventInfo = EVENT_TYPES[event.eventType] || { name: `Unknown Event #${event.eventType}`, tier: event.severityTier, color: tierColor };
+  const affectedZones = getAffectedZones(event.affectedZonesMask);
+  const isT3 = event.severityTier >= 3;
+  const glowClass = isRecent ? (isT3 ? "cosmic-glow-active-t3" : "cosmic-glow-active") : "";
+
+  return (
+    <div
+      className={`rounded-lg p-3 transition-all ${glowClass}`}
+      style={{
+        background: isRecent
+          ? `linear-gradient(135deg, ${tierColor}18, ${tierColor}08)`
+          : `${tierColor}08`,
+        border: `1px solid ${tierColor}${isRecent ? "60" : "25"}`,
+        borderLeft: `3px solid ${tierColor}`,
+      }}
+    >
+      <div className="flex items-start gap-3">
+        {/* Event icon */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
+          <img
+            src={EVENT_ICONS[event.eventType] || EVENT_ICONS[0]}
+            alt=""
+            className={`w-8 h-8 object-contain ${isRecent ? "cosmic-icon-pulse" : ""}`}
+            style={{ filter: `drop-shadow(0 0 ${isRecent ? "8px" : "4px"} ${tierColor}${isRecent ? "90" : "60"})` }}
+          />
+          <span
+            className="text-xs font-bold"
+            style={{ color: tierColor, fontFamily: "monospace", fontSize: 9 }}
+          >
+            T{event.severityTier}
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="text-xs font-bold uppercase tracking-wider"
+              style={{ color: tierColor }}
+            >
+              {isRecent ? "⚡ " : ""}{eventInfo.name}
+            </span>
+            {event.processed ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-500/20">
+                Resolved
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-500/20 animate-pulse">
+                Active
+              </span>
+            )}
+          </div>
+
+          {/* Origin + affected zones */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <span className="text-[10px] text-gray-500">Origin:</span>
+            <span
+              className="text-[10px] px-1 py-0.5 rounded"
+              style={{ background: `${ZONE_COLORS[event.originZone]}20`, color: ZONE_COLORS[event.originZone] }}
+            >
+              {(ZONE_NAMES[event.originZone] || `Zone ${event.originZone}`).replace("The ", "")}
+            </span>
+            {affectedZones.length > 0 && (
+              <>
+                <span className="text-[10px] text-gray-600">→</span>
+                {affectedZones.map(z => (
+                  <span
+                    key={z}
+                    className="text-[10px] px-1 py-0.5 rounded"
+                    style={{ background: `${ZONE_COLORS[z]}15`, color: ZONE_COLORS[z] }}
+                  >
+                    {(ZONE_NAMES[z] || `Zone ${z}`).replace("The ", "")}
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className="text-[10px] text-gray-600" style={{ fontFamily: "monospace" }}>
+            Block #{event.triggerBlock}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
