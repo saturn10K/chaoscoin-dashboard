@@ -37,8 +37,11 @@ const TYPE_DOTS: Record<string, string> = {
 export default function StatusTicker({ statusText, statusColor }: StatusTickerProps) {
   const [messages, setMessages] = useState<TickerMessage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [phase, setPhase] = useState<"enter" | "scroll" | "exit">("enter");
   const cycleCountRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch recent social messages
   const fetchMessages = useCallback(async () => {
@@ -48,13 +51,15 @@ export default function StatusTicker({ statusText, statusColor }: StatusTickerPr
       const data = await res.json();
       const msgs = (data.messages || []).map((m: Record<string, unknown>) => ({
         id: m.id as string,
-        agentEmoji: m.agentEmoji as string || "",
-        agentTitle: m.agentTitle as string || "Agent",
-        text: m.text as string || "",
-        type: m.type as string || "observation",
+        agentEmoji: (m.agentEmoji as string) || "",
+        agentTitle: (m.agentTitle as string) || "Agent",
+        text: (m.text as string) || "",
+        type: (m.type as string) || "observation",
       }));
       if (msgs.length > 0) setMessages(msgs);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }, []);
 
   useEffect(() => {
@@ -63,85 +68,135 @@ export default function StatusTicker({ statusText, statusColor }: StatusTickerPr
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Cycle through items
-  useEffect(() => {
-    if (messages.length === 0) return;
+  // Advance to next message
+  const advanceToNext = useCallback(() => {
+    // Fade out
+    setPhase("exit");
 
-    const timer = setInterval(() => {
-      // Fade out
-      setIsVisible(false);
+    timerRef.current = setTimeout(() => {
+      cycleCountRef.current += 1;
 
-      setTimeout(() => {
-        cycleCountRef.current += 1;
+      // Show status line every 5th cycle
+      if (cycleCountRef.current % 5 === 0) {
+        setCurrentIndex(-1);
+      } else {
+        setCurrentIndex((prev) => {
+          const next = prev === -1 ? 0 : prev + 1;
+          return next >= messages.length ? 0 : next;
+        });
+      }
 
-        // Show status line every 4th cycle
-        if (cycleCountRef.current % 5 === 0) {
-          setCurrentIndex(-1); // -1 = show status
-        } else {
-          setCurrentIndex((prev) => {
-            const next = prev === -1 ? 0 : prev + 1;
-            return next >= messages.length ? 0 : next;
-          });
-        }
-
-        // Fade in
-        setIsVisible(true);
-      }, 300);
-    }, 4500);
-
-    return () => clearInterval(timer);
+      // Fade in
+      setPhase("enter");
+    }, 400);
   }, [messages.length]);
 
-  // Build current display
+  // After entering, measure overflow and either scroll or wait then advance
+  useEffect(() => {
+    if (phase !== "enter") return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // Short delay to let the DOM render and measure
+    timerRef.current = setTimeout(() => {
+      const container = containerRef.current;
+      const content = contentRef.current;
+
+      if (!container || !content) {
+        // No content to measure — just advance after a pause
+        timerRef.current = setTimeout(advanceToNext, 3500);
+        return;
+      }
+
+      const overflow = content.scrollWidth - container.clientWidth;
+
+      if (overflow > 10) {
+        // Content overflows — start scrolling
+        // Speed: ~50px/s, min 3s, max 12s
+        const scrollDuration = Math.min(Math.max(overflow / 50, 3), 12);
+        content.style.transition = `transform ${scrollDuration}s linear`;
+        content.style.transform = `translateX(-${overflow + 20}px)`;
+        setPhase("scroll");
+
+        // After scroll finishes, wait a beat then advance
+        timerRef.current = setTimeout(advanceToNext, scrollDuration * 1000 + 800);
+      } else {
+        // Fits in container — just show for a few seconds
+        timerRef.current = setTimeout(advanceToNext, 4000);
+      }
+    }, 100);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [phase, currentIndex, advanceToNext]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const isShowingStatus = currentIndex === -1 || messages.length === 0;
+  const msg = !isShowingStatus ? messages[currentIndex] : null;
 
   return (
     <>
       <style>{`
-        .ticker-fade {
-          transition: opacity 0.3s ease-in-out;
+        .ticker-container {
+          position: relative;
+          overflow: hidden;
+          height: 20px;
         }
-        .ticker-fade-out {
-          opacity: 0;
+        .ticker-track {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          white-space: nowrap;
+          transition: opacity 0.35s ease, transform 0.35s ease;
         }
-        .ticker-fade-in {
+        .ticker-phase-enter {
           opacity: 1;
+          transform: translateY(0);
         }
-        @keyframes tickerSlideIn {
-          from { transform: translateY(4px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
+        .ticker-phase-scroll {
+          opacity: 1;
+          transform: translateY(0);
         }
-        .ticker-slide-in {
-          animation: tickerSlideIn 0.3s ease-out;
+        .ticker-phase-exit {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        .ticker-inner {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          will-change: transform;
         }
       `}</style>
-      <div className="relative overflow-hidden" style={{ height: 20 }}>
-        <div
-          className={`ticker-fade ${isVisible ? "ticker-fade-in ticker-slide-in" : "ticker-fade-out"}`}
-          style={{ position: "absolute", left: 0, right: 0, top: 0 }}
-        >
+      <div className="ticker-container" ref={containerRef}>
+        <div className={`ticker-track ticker-phase-${phase}`}>
           {isShowingStatus ? (
             <span style={{ color: statusColor }}>{statusText}</span>
-          ) : (
-            <span className="flex items-center gap-1.5">
+          ) : msg ? (
+            <div
+              ref={contentRef}
+              className="ticker-inner"
+              style={{ transform: "translateX(0)", transition: "none" }}
+              key={msg.id + "-" + currentIndex}
+            >
               <span
-                className="inline-block w-1 h-1 rounded-full shrink-0"
-                style={{ backgroundColor: TYPE_DOTS[messages[currentIndex]?.type] || "#7B61FF" }}
+                className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: TYPE_DOTS[msg.type] || "#7B61FF" }}
               />
-              <span className="text-gray-500 shrink-0">
-                {messages[currentIndex]?.agentEmoji}
-              </span>
+              <span className="text-gray-500 shrink-0">{msg.agentEmoji}</span>
               <span className="font-medium shrink-0" style={{ color: "#8B93A0" }}>
-                {messages[currentIndex]?.agentTitle}:
+                {msg.agentTitle}:
               </span>
-              <span
-                className="text-gray-300 truncate"
-                style={{ maxWidth: "calc(100vw - 120px)" }}
-              >
-                {messages[currentIndex]?.text}
-              </span>
-            </span>
-          )}
+              <span className="text-gray-300">{msg.text}</span>
+            </div>
+          ) : null}
         </div>
       </div>
     </>
