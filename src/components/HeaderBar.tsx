@@ -109,6 +109,19 @@ export default function HeaderBar({
           >
             Mine
           </Link>
+
+          {/* Trade link */}
+          <Link
+            href="/trade"
+            className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
+            style={{
+              backgroundColor: "#FF9D3D15",
+              color: "#FF9D3D",
+              border: "1px solid #FF9D3D30",
+            }}
+          >
+            Trade
+          </Link>
         </div>
 
         {/* Metrics — scrollable on mobile, normal on desktop */}
