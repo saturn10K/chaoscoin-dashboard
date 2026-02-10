@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useActivityFeed, ActivityItem } from "../hooks/useActivityFeed";
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
 import { publicClient } from "../lib/contracts";
 import { ZONE_NAMES, ZONE_COLORS } from "../lib/constants";
+
+const MONAD_EXPLORER = "https://testnet.monadexplorer.com/tx/";
 
 // ── On-chain event styling ───────────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
@@ -136,6 +138,7 @@ export default function ActivityFeed() {
   const [currentBlock, setCurrentBlock] = useState<bigint>(0n);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [page, setPage] = useState(0);
+  const [detailModal, setDetailModal] = useState<{ type: string; data: SabotageEvent | NegotiationEvent | AllianceEvent } | null>(null);
 
   useEffect(() => {
     const fetchBlock = async () => {
@@ -285,10 +288,10 @@ export default function ActivityFeed() {
                 return <AllianceEventRow key={`ae-${item.allianceEvent.allianceId}-${idx}`} event={item.allianceEvent} />;
               }
               if (item.kind === "sabotage" && item.sabotageEvent) {
-                return <SabotageRow key={`sab-${item.sabotageEvent.id}`} event={item.sabotageEvent} />;
+                return <SabotageRow key={`sab-${item.sabotageEvent.id}`} event={item.sabotageEvent} onClick={() => setDetailModal({ type: "sabotage", data: item.sabotageEvent! })} />;
               }
               if (item.kind === "negotiation" && item.negotiation) {
-                return <NegotiationRow key={`neg-${item.negotiation.id}`} negotiation={item.negotiation} />;
+                return <NegotiationRow key={`neg-${item.negotiation.id}`} negotiation={item.negotiation} onClick={() => setDetailModal({ type: "negotiation", data: item.negotiation! })} />;
               }
               return null;
             })}
@@ -323,6 +326,15 @@ export default function ActivityFeed() {
           </div>
         </div>
       )}
+
+      {/* Detail modal for off-chain events */}
+      {detailModal && (
+        <EventDetailModal
+          type={detailModal.type}
+          data={detailModal.data}
+          onClose={() => setDetailModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -342,9 +354,14 @@ function ChainRow({ item, currentBlock }: { item: ActivityItem; currentBlock: bi
   const color = TYPE_COLORS[item.type] || "#6B7280";
   const blockDiff = currentBlock > 0n ? currentBlock - item.blockNumber : 0n;
   const timeAgo = currentBlock > 0n ? formatBlockTimeAgo(blockDiff) : "";
+  const txUrl = item.txHash ? `${MONAD_EXPLORER}${item.txHash}` : undefined;
 
   return (
-    <div className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover">
+    <div
+      className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover"
+      style={{ cursor: txUrl ? "pointer" : "default" }}
+      onClick={() => txUrl && window.open(txUrl, "_blank", "noopener,noreferrer")}
+    >
       <TypeBadge color={color} icon={TYPE_ICONS[item.type]} label={item.type} />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-300">
@@ -358,6 +375,14 @@ function ChainRow({ item, currentBlock }: { item: ActivityItem; currentBlock: bi
         <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5 flex items-center gap-2" style={{ fontFamily: "monospace" }}>
           <span>{timeAgo}</span>
           <span className="text-gray-700 hidden sm:inline">block {item.blockNumber.toString()}</span>
+          {txUrl && (
+            <span
+              className="text-[9px] px-1 py-0.5 rounded hover:brightness-125 transition-all"
+              style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}
+            >
+              View Tx ↗
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -394,7 +419,7 @@ function AllianceEventRow({ event }: { event: AllianceEvent }) {
 }
 
 // ── Sabotage row ─────────────────────────────────────────────────────
-function SabotageRow({ event }: { event: SabotageEvent }) {
+function SabotageRow({ event, onClick }: { event: SabotageEvent; onClick?: () => void }) {
   const color = ATTACK_COLORS[event.type] || "#FF4444";
   const icon = ATTACK_ICONS[event.type] || "💥";
   const label = ATTACK_LABELS[event.type] || "Attack";
@@ -403,7 +428,11 @@ function SabotageRow({ event }: { event: SabotageEvent }) {
   const zoneColor = ZONE_COLORS[event.zone] || "#7F8C8D";
 
   return (
-    <div className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover">
+    <div
+      className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover"
+      style={{ cursor: onClick ? "pointer" : "default" }}
+      onClick={onClick}
+    >
       <TypeBadge color={color} emoji={icon} label={label} />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-300">
@@ -435,7 +464,7 @@ function SabotageRow({ event }: { event: SabotageEvent }) {
 }
 
 // ── Negotiation row ──────────────────────────────────────────────────
-function NegotiationRow({ negotiation }: { negotiation: NegotiationEvent }) {
+function NegotiationRow({ negotiation, onClick }: { negotiation: NegotiationEvent; onClick?: () => void }) {
   const icon = DEAL_ICONS[negotiation.type] || "📋";
   const outcomeColor =
     negotiation.outcome === "accepted" ? "#00E5A0" :
@@ -446,7 +475,11 @@ function NegotiationRow({ negotiation }: { negotiation: NegotiationEvent }) {
   const timeAgo = formatTimestampAgo(negotiation.timestamp);
 
   return (
-    <div className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover">
+    <div
+      className="px-3 sm:px-4 py-2 flex items-start gap-2 sm:gap-3 hover:bg-white/[0.02] transition-colors row-hover"
+      style={{ cursor: onClick ? "pointer" : "default" }}
+      onClick={onClick}
+    >
       <TypeBadge color="#7B61FF" emoji={icon} label="Deal" />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-300 flex items-center gap-1.5 flex-wrap">
@@ -493,6 +526,160 @@ function TypeBadge({ color, icon, emoji, label }: { color: string; icon?: string
       {emoji && <span className="text-xs">{emoji}</span>}
       {label}
     </span>
+  );
+}
+
+// ── Event detail modal ─────────────────────────────────────────────
+function EventDetailModal({ type, data, onClose }: { type: string; data: SabotageEvent | NegotiationEvent | AllianceEvent; onClose: () => void }) {
+  const isSabotage = type === "sabotage" && "attackerAgentId" in data;
+  const isNegotiation = type === "negotiation" && "proposerAgentId" in data;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+      style={{ backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg border overflow-hidden max-w-md w-full mx-4 animate-scale-in"
+        style={{ backgroundColor: "#0D1117", borderColor: "rgba(123,97,255,0.3)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between" style={{ backgroundColor: "#06080D" }}>
+          <h3 className="text-sm font-semibold" style={{ color: "#7B61FF" }}>
+            {isSabotage ? "Sabotage Event" : isNegotiation ? "Negotiation" : "Event Details"}
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20 transition-colors">
+            Close
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 space-y-3">
+          {isSabotage && (() => {
+            const sab = data as SabotageEvent;
+            const icon = ATTACK_ICONS[sab.type] || "💥";
+            const label = ATTACK_LABELS[sab.type] || "Attack";
+            const color = ATTACK_COLORS[sab.type] || "#FF4444";
+            const zoneName = ZONE_NAMES[sab.zone] || `Zone ${sab.zone}`;
+            const zoneColor = ZONE_COLORS[sab.zone] || "#7F8C8D";
+            return (
+              <>
+                {/* Attack type banner */}
+                <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}30` }}>
+                  <span className="text-2xl">{icon}</span>
+                  <div>
+                    <div className="text-sm font-bold" style={{ color }}>{label}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: `${zoneColor}20`, color: zoneColor }}>
+                        {zoneName}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Participants */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md p-2.5 text-center" style={{ backgroundColor: "#06080D", border: "1px solid rgba(255,68,68,0.2)" }}>
+                    <div className="text-[10px] text-gray-500 uppercase">Attacker</div>
+                    <div className="text-sm font-bold text-red-400" style={{ fontFamily: "monospace" }}>Agent #{sab.attackerAgentId}</div>
+                    {sab.attackerTitle && <div className="text-xs text-gray-400 mt-0.5 truncate">{sab.attackerTitle}</div>}
+                  </div>
+                  <div className="rounded-md p-2.5 text-center" style={{ backgroundColor: "#06080D", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <div className="text-[10px] text-gray-500 uppercase">Target</div>
+                    <div className="text-sm font-bold text-gray-300" style={{ fontFamily: "monospace" }}>Agent #{sab.targetAgentId}</div>
+                    {sab.targetTitle && <div className="text-xs text-gray-400 mt-0.5 truncate">{sab.targetTitle}</div>}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-md p-2 text-center" style={{ backgroundColor: "#06080D" }}>
+                    <div className="text-[10px] text-gray-500">Damage</div>
+                    <div className="text-sm font-bold text-red-400">{sab.damage > 0 ? `-${sab.damage}%` : "0%"}</div>
+                  </div>
+                  <div className="rounded-md p-2 text-center" style={{ backgroundColor: "#06080D" }}>
+                    <div className="text-[10px] text-gray-500">Cost</div>
+                    <div className="text-sm font-bold text-gray-300" style={{ fontFamily: "monospace" }}>{formatChaos(sab.cost)}</div>
+                  </div>
+                  <div className="rounded-md p-2 text-center" style={{ backgroundColor: "#06080D" }}>
+                    <div className="text-[10px] text-gray-500">Burned</div>
+                    <div className="text-sm font-bold text-orange-400" style={{ fontFamily: "monospace" }}>🔥 {formatChaos(sab.burned)}</div>
+                  </div>
+                </div>
+
+                {sab.shieldReduction > 0 && (
+                  <div className="text-xs text-blue-400 flex items-center gap-1">
+                    🛡️ Shield absorbed {sab.shieldReduction}% of damage
+                  </div>
+                )}
+
+                {sab.narrative && (
+                  <p className="text-xs text-gray-400 italic leading-relaxed p-2 rounded" style={{ backgroundColor: "#06080D" }}>
+                    &ldquo;{sab.narrative}&rdquo;
+                  </p>
+                )}
+
+                <div className="text-[10px] text-gray-600" style={{ fontFamily: "monospace" }}>
+                  {new Date(sab.timestamp).toLocaleString()}
+                </div>
+              </>
+            );
+          })()}
+
+          {isNegotiation && (() => {
+            const neg = data as NegotiationEvent;
+            const icon = DEAL_ICONS[neg.type] || "📋";
+            const outcomeColor = neg.outcome === "accepted" ? "#00E5A0" : neg.outcome === "rejected" ? "#FF4444" : "#6B7280";
+            return (
+              <>
+                <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: "#7B61FF10", border: "1px solid #7B61FF30" }}>
+                  <span className="text-2xl">{icon}</span>
+                  <div>
+                    <div className="text-sm font-bold" style={{ color: "#7B61FF" }}>{neg.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    <div className="text-xs mt-0.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: `${outcomeColor}20`, color: outcomeColor }}>
+                        {neg.outcome.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md p-2.5 text-center" style={{ backgroundColor: "#06080D", border: "1px solid rgba(123,97,255,0.2)" }}>
+                    <div className="text-[10px] text-gray-500 uppercase">Proposer</div>
+                    <div className="text-sm font-bold" style={{ color: "#7B61FF", fontFamily: "monospace" }}>Agent #{neg.proposerAgentId}</div>
+                    {neg.proposerTitle && <div className="text-xs text-gray-400 mt-0.5 truncate">{neg.proposerTitle}</div>}
+                  </div>
+                  <div className="rounded-md p-2.5 text-center" style={{ backgroundColor: "#06080D", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <div className="text-[10px] text-gray-500 uppercase">Target</div>
+                    <div className="text-sm font-bold text-gray-300" style={{ fontFamily: "monospace" }}>Agent #{neg.targetAgentId}</div>
+                    {neg.targetTitle && <div className="text-xs text-gray-400 mt-0.5 truncate">{neg.targetTitle}</div>}
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded" style={{ backgroundColor: "#06080D" }}>
+                  <div className="text-[10px] text-gray-500 uppercase mb-1">Terms</div>
+                  <p className="text-xs text-gray-300 leading-relaxed">{neg.terms}</p>
+                </div>
+
+                {neg.response && (
+                  <div className="p-2.5 rounded" style={{ backgroundColor: "#06080D" }}>
+                    <div className="text-[10px] text-gray-500 uppercase mb-1">Response</div>
+                    <p className="text-xs text-gray-400 italic leading-relaxed">&ldquo;{neg.response}&rdquo;</p>
+                  </div>
+                )}
+
+                <div className="text-[10px] text-gray-600" style={{ fontFamily: "monospace" }}>
+                  {new Date(neg.timestamp).toLocaleString()}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
   );
 }
 

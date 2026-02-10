@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useEffect, useState } from "react";
+
 function formatNumber(val: string): string {
   const num = parseFloat(val);
   if (isNaN(num)) return "0.00";
@@ -39,6 +41,29 @@ const BURN_SOURCE_LABELS: { key: keyof BurnsBySource; label: string; color: stri
   { key: "sabotage", label: "Sabotage", color: "#FF4444" },
 ];
 
+/** Hook to detect when a value changes and trigger a glow pop */
+function useGlowPop(value: string): boolean {
+  const prevRef = useRef(value);
+  const [glowing, setGlowing] = useState(false);
+
+  useEffect(() => {
+    if (prevRef.current !== value && prevRef.current !== "0" && prevRef.current !== "0.00") {
+      // Value changed (and wasn't the initial "0" → first load)
+      setGlowing(true);
+      const timer = setTimeout(() => setGlowing(false), 700);
+      return () => clearTimeout(timer);
+    }
+    prevRef.current = value;
+  }, [value]);
+
+  // Also update ref when not glowing
+  useEffect(() => {
+    prevRef.current = value;
+  });
+
+  return glowing;
+}
+
 export default function SupplyMetrics({
   totalMinted,
   totalBurned,
@@ -47,6 +72,8 @@ export default function SupplyMetrics({
   burnsBySource,
 }: SupplyMetricsProps) {
   const totalBurnedNum = parseFloat(totalBurned) || 0;
+  const mintedGlow = useGlowPop(totalMinted);
+  const burnedGlow = useGlowPop(totalBurned);
 
   // Compute source percentages for the bar chart
   const sourceValues = BURN_SOURCE_LABELS.map((s) => ({
@@ -83,7 +110,8 @@ export default function SupplyMetrics({
               Total Minted
             </div>
             <div
-              className="text-lg font-bold"
+              className={`text-lg font-bold ${mintedGlow ? "glow-pop" : ""}`}
+              key={mintedGlow ? `minted-${Date.now()}` : "minted-stable"}
               style={{ color: "#00E5A0", fontFamily: "monospace" }}
             >
               {formatNumber(totalMinted)}
@@ -97,7 +125,8 @@ export default function SupplyMetrics({
               Total Burned
             </div>
             <div
-              className="text-lg font-bold"
+              className={`text-lg font-bold ${burnedGlow ? "glow-pop" : ""}`}
+              key={burnedGlow ? `burned-${Date.now()}` : "burned-stable"}
               style={{ color: "#FF6B35", fontFamily: "monospace" }}
             >
               {formatNumber(totalBurned)}

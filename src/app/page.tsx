@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useChainData } from "../hooks/useChainData";
 import { useAgents } from "../hooks/useAgents";
@@ -13,6 +13,52 @@ import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
 import WelcomeGuide from "../components/WelcomeGuide";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+/** Hook that tracks which zones should flash when new social messages arrive */
+function useZonePulse(): Set<number> {
+  const [pulsingZones, setPulsingZones] = useState<Set<number>>(new Set());
+  const lastMessageIdRef = useRef<string>("");
+
+  const checkForNewMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/social/feed?count=5`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const messages = data.messages || [];
+      if (messages.length === 0) return;
+
+      const latestId = messages[0]?.id;
+      if (!latestId || latestId === lastMessageIdRef.current) return;
+
+      // Find new messages since last check
+      const newZones = new Set<number>();
+      for (const msg of messages) {
+        if (msg.id === lastMessageIdRef.current) break;
+        if (msg.zone !== undefined && msg.zone >= 0 && msg.zone <= 7) {
+          newZones.add(msg.zone);
+        }
+      }
+
+      lastMessageIdRef.current = latestId;
+
+      if (newZones.size > 0) {
+        setPulsingZones(newZones);
+        // Clear after 2 seconds (animation duration)
+        setTimeout(() => setPulsingZones(new Set()), 2000);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    checkForNewMessages();
+    const interval = setInterval(checkForNewMessages, 8000);
+    return () => clearInterval(interval);
+  }, [checkForNewMessages]);
+
+  return pulsingZones;
+}
+
 // Dynamic imports with SSR disabled — these use Date.now() / real-time data
 // that causes hydration mismatches between server and client renders
 const ActivityFeed = dynamic(() => import("../components/ActivityFeed"), { ssr: false });
@@ -23,6 +69,7 @@ export default function Dashboard() {
   const { agents, currentBlock } = useAgents(data?.totalAgents ?? 0);
   const { events } = useCosmicEvents(data?.totalEvents ?? 0);
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
+  const pulsingZones = useZonePulse();
 
   const isLive = data !== null;
 
@@ -66,6 +113,7 @@ export default function Dashboard() {
               totalAgents={data?.totalAgents ?? 0}
               agents={agents}
               onSelectAgent={setSelectedAgent}
+              pulsingZones={pulsingZones}
             />
           </div>
 

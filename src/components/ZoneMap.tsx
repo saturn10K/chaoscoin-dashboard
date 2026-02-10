@@ -18,6 +18,8 @@ interface ZoneMapProps {
   totalAgents: number;
   agents: AgentProfile[];
   onSelectAgent?: (agentId: number) => void;
+  /** Set of zone indices that should flash/pulse (e.g. when agent posts a message) */
+  pulsingZones?: Set<number>;
 }
 
 interface ZoneStats {
@@ -113,7 +115,7 @@ const ADJACENCY: [number, number][] = [
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent }: ZoneMapProps) {
+export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent, pulsingZones }: ZoneMapProps) {
   const [selectedZone, setSelectedZone] = useState<number | null>(null);
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const maxCount = Math.max(...zoneCounts, 1);
@@ -344,6 +346,44 @@ export default function ZoneMap({ zoneCounts, totalAgents, agents, onSelectAgent
                       repeatCount="indefinite"
                     />
                   </path>
+                )}
+
+                {/* Social message flash — bright pulse when agent posts */}
+                {pulsingZones?.has(i) && (
+                  <>
+                    <path
+                      d={hexPath(S + 2)}
+                      fill="none"
+                      stroke={ZONE_COLORS[i]}
+                      strokeWidth={3}
+                    >
+                      <animate
+                        attributeName="stroke-opacity"
+                        values="0;1;0.8;0"
+                        dur="1.5s"
+                        repeatCount="1"
+                      />
+                      <animate
+                        attributeName="stroke-width"
+                        values="1;4;3;1"
+                        dur="1.5s"
+                        repeatCount="1"
+                      />
+                    </path>
+                    <path
+                      d={hexPath(S + 6)}
+                      fill="none"
+                      stroke={ZONE_COLORS[i]}
+                      strokeWidth={1}
+                    >
+                      <animate
+                        attributeName="stroke-opacity"
+                        values="0;0.5;0.3;0"
+                        dur="1.5s"
+                        repeatCount="1"
+                      />
+                    </path>
+                  </>
                 )}
                 </g>
               </g>

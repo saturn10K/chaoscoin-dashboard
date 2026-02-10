@@ -245,3 +245,48 @@ body {
 .status-dot-live {
   animation: pulseGlow 2s ease-in-out infinite;
 }
+
+/* ─── Glow Pop — for stat value updates ────────────────────────────── */
+@keyframes glowPop {
+  0% {
+    text-shadow: none;
+    transform: scale(1);
+  }
+  15% {
+    text-shadow: 0 0 12px currentColor, 0 0 24px currentColor;
+    transform: scale(1.12);
+  }
+  40% {
+    text-shadow: 0 0 8px currentColor;
+    transform: scale(1.04);
+  }
+  100% {
+    text-shadow: none;
+    transform: scale(1);
+  }
+}
+
+.glow-pop {
+  animation: glowPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  display: inline-block; /* Needed for transform to work */
+}
+
+/* ─── Zone Hex Flash — when agent posts a social message ───────────── */
+@keyframes hexFlash {
+  0% {
+    stroke-opacity: 0.2;
+    stroke-width: 1;
+  }
+  20% {
+    stroke-opacity: 1;
+    stroke-width: 4;
+  }
+  50% {
+    stroke-opacity: 0.8;
+    stroke-width: 3;
+  }
+  100% {
+    stroke-opacity: 0.2;
+    stroke-width: 1;
+  }
+}
