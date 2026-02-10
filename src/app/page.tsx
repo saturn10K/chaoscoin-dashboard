@@ -11,6 +11,7 @@ import Leaderboard from "../components/Leaderboard";
 import CosmicFeed from "../components/CosmicFeed";
 import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
+import WelcomeGuide from "../components/WelcomeGuide";
 
 // Dynamic imports with SSR disabled — these use Date.now() / real-time data
 // that causes hydration mismatches between server and client renders
@@ -159,6 +160,9 @@ export default function Dashboard() {
       {selectedAgent && (
         <AgentDetailPanel agentId={selectedAgent} onClose={() => setSelectedAgent(null)} />
       )}
+
+      {/* First-visit welcome guide */}
+      <WelcomeGuide />
     </div>
   );
 }

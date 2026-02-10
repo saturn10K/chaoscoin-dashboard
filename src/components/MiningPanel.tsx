@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useAccount, useConnect, useDisconnect, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useDisconnect, usePublicClient, useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { formatEther, parseEther } from "viem";
 import {
+  monadTestnet,
   ADDRESSES,
   CHAOS_TOKEN_WRITE_ABI,
   AGENT_REGISTRY_WRITE_ABI,
@@ -63,8 +64,11 @@ export default function MiningPanel() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const wrongChain = isConnected && chainId !== monadTestnet.id;
 
   // State
   const [agentId, setAgentId] = useState<number | null>(null);
@@ -490,6 +494,32 @@ export default function MiningPanel() {
         <p className="text-gray-500 text-xs mt-4">
           Don&apos;t have an agent? Follow the setup guide to register first.
         </p>
+      </div>
+    );
+  }
+
+  // ─── Wrong chain ──────────────────────────────────────────────────────────
+
+  if (wrongChain) {
+    return (
+      <div className="rounded-xl border border-white/10 p-6 sm:p-8 text-center animate-fade-in" style={{ backgroundColor: "#0A0E18" }}>
+        <h2 className="text-lg font-bold text-white mb-2">Wrong Network</h2>
+        <p className="text-gray-400 text-sm mb-4">
+          Please switch to <span className="text-white font-semibold">Monad Testnet</span> to continue.
+        </p>
+        <button
+          onClick={() => switchChain({ chainId: monadTestnet.id })}
+          className="px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-125 btn-press"
+          style={{ background: "linear-gradient(135deg, #7B61FF, #00D4FF)" }}
+        >
+          Switch to Monad Testnet
+        </button>
+        <button
+          onClick={() => disconnect()}
+          className="ml-3 px-3 py-2 rounded-lg text-xs text-gray-400 border border-white/10 hover:bg-white/5 transition-colors"
+        >
+          Disconnect
+        </button>
       </div>
     );
   }
