@@ -63,6 +63,7 @@ function useZonePulse(): Set<number> {
 // that causes hydration mismatches between server and client renders
 const ActivityFeed = dynamic(() => import("../components/ActivityFeed"), { ssr: false });
 const SocialFeed = dynamic(() => import("../components/SocialFeed"), { ssr: false });
+const StatusTicker = dynamic(() => import("../components/StatusTicker"), { ssr: false });
 
 export default function Dashboard() {
   const { data, loading, error } = useChainData();
@@ -84,7 +85,7 @@ export default function Dashboard() {
         eventCooldown={data?.eventCooldown ?? 75000}
       />
 
-      {/* Status bar */}
+      {/* Status bar / Social ticker */}
       <div className="px-4 py-1 text-xs" style={{ background: "#0D1117" }}>
         {loading ? (
           <span className="text-gray-500">Connecting to Monad Testnet...</span>
@@ -93,9 +94,10 @@ export default function Dashboard() {
             Connection error: {error}
           </span>
         ) : isLive ? (
-          <span style={{ color: "#00E5A0" }}>
-            ● Live on Monad Testnet | Genesis Phase {data.genesisPhase} | Era {data.currentEra} | {data.totalAgents} total agents | {data.activeAgentCount} active
-          </span>
+          <StatusTicker
+            statusText={`● Live on Monad Testnet | Genesis Phase ${data.genesisPhase} | Era ${data.currentEra} | ${data.totalAgents} total agents | ${data.activeAgentCount} active`}
+            statusColor="#00E5A0"
+          />
         ) : (
           <span className="text-yellow-500">
             Demo mode — deploy contracts and set NEXT_PUBLIC_*_ADDRESS env vars to connect
