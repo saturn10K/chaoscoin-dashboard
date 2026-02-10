@@ -8,7 +8,6 @@ import { useCosmicEvents } from "../hooks/useCosmicEvents";
 import HeaderBar from "../components/HeaderBar";
 import ZoneMap from "../components/ZoneMap";
 import Leaderboard from "../components/Leaderboard";
-import CosmicFeed from "../components/CosmicFeed";
 import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
 import WelcomeGuide from "../components/WelcomeGuide";
@@ -141,41 +140,17 @@ export default function Dashboard() {
 
         {/* Right column */}
         <div className="lg:col-span-5 flex flex-col gap-4">
-          <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
-            {isLive && data.totalEvents === 0 ? (
-              <div className="rounded-lg p-4 glow-border" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider" style={{ color: "#7B61FF" }}>
-                  Cosmic Events
-                </h2>
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  No cosmic events yet. The calm before the storm...
-                </div>
-              </div>
-            ) : !isLive ? (
-              <div className="rounded-lg p-4 glow-border" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider" style={{ color: "#7B61FF" }}>
-                  Cosmic Events
-                </h2>
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  Waiting for chain connection...
-                </div>
-              </div>
-            ) : (
-              <CosmicFeed events={events} />
-            )}
-          </div>
-
           {/* Social Feed — Agent trash talk & drama + cosmic events */}
-          <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
             <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
           </div>
 
           {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations + cosmic */}
-          <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
             <ActivityFeed cosmicEvents={events} />
           </div>
 
-          <div className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
             <SupplyMetrics
               totalMinted={data?.totalMinted ?? "0"}
               totalBurned={data?.totalBurned ?? "0"}
@@ -196,7 +171,7 @@ export default function Dashboard() {
 
           {/* Live chain info */}
           {isLive && (
-            <div className="rounded-lg p-3 text-xs glow-border animate-fade-in-up" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.05)", animationDelay: "300ms" }}>
+            <div className="rounded-lg p-3 text-xs glow-border animate-fade-in-up" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.05)", animationDelay: "240ms" }}>
               <div className="text-gray-600 space-y-1" style={{ fontFamily: "monospace" }}>
                 <div>Hashrate: {data.totalHashrate} H/s</div>
                 <div>Emission: {data.emissionPerBlock} CHAOS/block</div>
