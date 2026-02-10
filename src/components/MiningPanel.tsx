@@ -989,6 +989,9 @@ function StatCard({ label, value, color }: { label: string; value: string; color
 // ─── Item Info Modal ──────────────────────────────────────────────────────────
 
 function ItemModal({ item, onClose, txPending }: { item: ModalItem; onClose: () => void; txPending: boolean }) {
+  // Zone images are 1:1 square, everything else is 3:2 landscape
+  const isSquare = item.kind === "zone";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -1002,22 +1005,32 @@ function ItemModal({ item, onClose, txPending }: { item: ModalItem; onClose: () 
       >
         {/* Image */}
         {item.image && (
-          <div className="relative w-full h-48 overflow-hidden" style={{ backgroundColor: `${item.color}10` }}>
+          <div
+            className="relative w-full overflow-hidden"
+            style={{
+              backgroundColor: `${item.color}08`,
+              aspectRatio: isSquare ? "4 / 3" : "3 / 2",
+            }}
+          >
             <img
               src={item.image}
               alt={item.name}
-              className="w-full h-full object-cover"
-              style={{ opacity: 0.9 }}
+              className="absolute inset-0 w-full h-full"
+              style={{
+                objectFit: isSquare ? "contain" : "cover",
+                objectPosition: "center",
+                opacity: 0.9,
+              }}
             />
             <div
               className="absolute inset-0"
-              style={{ background: `linear-gradient(to bottom, transparent 50%, #0A0E18 100%)` }}
+              style={{ background: `linear-gradient(to bottom, transparent 60%, #0A0E18 100%)` }}
             />
           </div>
         )}
 
         {/* Content */}
-        <div className="p-5 -mt-6 relative">
+        <div className={`p-5 relative ${item.image ? "-mt-8" : ""}`}>
           {/* Title row */}
           <div className="flex items-center gap-2 mb-2">
             <span
