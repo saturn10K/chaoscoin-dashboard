@@ -277,6 +277,13 @@ export default function TradePanel() {
             </span>
             <span className="text-[10px] text-gray-500">
               Fee: {(Number(direction === "toNad" ? feeToNadBps : feeToGameBps) / 100).toFixed(0)}%
+              {inputAmount && amountOut > 0n && (() => {
+                try {
+                  const inWei = parseEther(inputAmount);
+                  const fee = inWei > amountOut ? inWei - amountOut : 0n;
+                  return fee > 0n ? ` (${fmtBig(fee)} ${inputLabel})` : "";
+                } catch { return ""; }
+              })()}
             </span>
           </div>
         </div>
@@ -359,10 +366,28 @@ export default function TradePanel() {
           </div>
         </div>
 
+        {/* Insufficient reserves warning */}
+        {inputAmount && amountOut > 0n && amountOut > outputReserve && (
+          <div className="rounded-lg border border-red-500/30 p-2.5 mb-3 text-center" style={{ backgroundColor: "#1a000008" }}>
+            <span className="text-red-400 text-xs font-medium">Insufficient liquidity — not enough {outputLabel} in reserves</span>
+          </div>
+        )}
+
+        {/* Insufficient balance warning */}
+        {inputAmount && (() => {
+          try {
+            return parseEther(inputAmount) > inputBalance;
+          } catch { return false; }
+        })() && (
+          <div className="rounded-lg border border-yellow-500/30 p-2.5 mb-3 text-center" style={{ backgroundColor: "#1a150008" }}>
+            <span className="text-yellow-400 text-xs font-medium">Insufficient {inputLabel} balance</span>
+          </div>
+        )}
+
         {/* Swap button */}
         <button
           onClick={doSwap}
-          disabled={!inputAmount || isPaused || !!txPending || amountOut === 0n}
+          disabled={!inputAmount || isPaused || !!txPending || amountOut === 0n || (amountOut > outputReserve)}
           className="w-full py-3 rounded-lg font-semibold text-sm transition-all btn-press disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: txPending
@@ -379,6 +404,8 @@ export default function TradePanel() {
             ? "Bridge Paused"
             : !inputAmount
             ? "Enter Amount"
+            : amountOut > outputReserve
+            ? "Insufficient Liquidity"
             : `Swap ${inputLabel} → ${outputLabel}`}
         </button>
 

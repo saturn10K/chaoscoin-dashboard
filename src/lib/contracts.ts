@@ -122,7 +122,6 @@ export const RIG_FACTORY_ABI = [
   },
 ] as const;
 
-// NOTE: After redeployment with degradation system, uncomment the condition/maxCondition fields
 export const FACILITY_MANAGER_ABI = [
   {
     inputs: [{ type: "uint256" }],
@@ -134,8 +133,8 @@ export const FACILITY_MANAGER_ABI = [
         { name: "slots", type: "uint8" },
         { name: "powerOutput", type: "uint32" },
         { name: "shelterRating", type: "uint8" },
-        // { name: "condition", type: "uint256" },    // Enable after redeployment
-        // { name: "maxCondition", type: "uint256" },  // Enable after redeployment
+        { name: "condition", type: "uint256" },
+        { name: "maxCondition", type: "uint256" },
       ],
     }],
     stateMutability: "view",
@@ -209,14 +208,36 @@ export const MINING_ENGINE_WRITE_ABI = [
 
 export const RIG_FACTORY_WRITE_ABI = [
   { inputs: [{ type: "uint256" }, { type: "uint8" }], name: "purchaseRig", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "repairRig", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "equipRig", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "unequipRig", outputs: [], stateMutability: "nonpayable", type: "function" },
   { inputs: [{ type: "uint256" }], name: "getAgentRigs", outputs: [{ type: "uint256[]" }], stateMutability: "view", type: "function" },
   { inputs: [{ type: "uint8" }], name: "getEffectiveCost", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [{ type: "uint256" }], name: "calculateEffectiveHashrate", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [{ type: "uint256" }], name: "getUsedPower", outputs: [{ type: "uint32" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ type: "uint256" }],
+    name: "getRig",
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "tier", type: "uint8" },
+        { name: "baseHashrate", type: "uint256" },
+        { name: "powerDraw", type: "uint16" },
+        { name: "durability", type: "uint256" },
+        { name: "maxDurability", type: "uint256" },
+        { name: "ownerAgentId", type: "uint256" },
+        { name: "active", type: "bool" },
+      ],
+    }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 export const FACILITY_WRITE_ABI = [
   { inputs: [{ type: "uint256" }], name: "upgrade", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ type: "uint256" }], name: "maintainFacility", outputs: [], stateMutability: "nonpayable", type: "function" },
   {
     inputs: [{ type: "uint256" }],
     name: "getFacility",
@@ -227,6 +248,8 @@ export const FACILITY_WRITE_ABI = [
         { name: "slots", type: "uint8" },
         { name: "powerOutput", type: "uint32" },
         { name: "shelterRating", type: "uint8" },
+        { name: "condition", type: "uint256" },
+        { name: "maxCondition", type: "uint256" },
       ],
     }],
     stateMutability: "view",

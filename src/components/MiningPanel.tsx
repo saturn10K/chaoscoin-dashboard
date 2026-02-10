@@ -49,6 +49,19 @@ interface FacilityData {
   slots: number;
   powerOutput: number;
   shelterRating: number;
+  condition: number;
+  maxCondition: number;
+}
+
+interface RigData {
+  rigId: number;
+  tier: number;
+  baseHashrate: bigint;
+  powerDraw: number;
+  durability: number;
+  maxDurability: number;
+  ownerAgentId: number;
+  active: boolean;
 }
 
 interface ShieldData {
@@ -124,6 +137,7 @@ export default function MiningPanel() {
   const [monBalance, setMonBalance] = useState<bigint | null>(null);
   const [pendingRewards, setPendingRewards] = useState<bigint>(0n);
   const [rigCount, setRigCount] = useState(0);
+  const [rigs, setRigs] = useState<RigData[]>([]);
   const [effectiveHashrate, setEffectiveHashrate] = useState<bigint>(0n);
   const [usedPower, setUsedPower] = useState(0);
 
@@ -132,9 +146,12 @@ export default function MiningPanel() {
   const [loading, setLoading] = useState(false);
   const [txPending, setTxPending] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<ModalItem | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   const miningRef = useRef(false);
   const heartbeatPendingRef = useRef(false);
+  const txMutexRef = useRef(false); // Prevents concurrent txs between mining loop and manual actions
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // ─── Check MON (gas) balance on connect ──────────────────────────────────
@@ -226,18 +243,57 @@ export default function MiningPanel() {
 
       if (facilityRaw) {
         const f = facilityRaw as any;
-        setFacility({ level: f.level, slots: f.slots, powerOutput: Number(f.powerOutput), shelterRating: f.shelterRating });
+        setFacility({
+          level: f.level,
+          slots: f.slots,
+          powerOutput: Number(f.powerOutput),
+          shelterRating: f.shelterRating,
+          condition: Number(f.condition ?? 100),
+          maxCondition: Number(f.maxCondition ?? 100),
+        });
       }
       if (shieldRaw) {
         const s = shieldRaw as any;
         setShield({ tier: s.tier, absorption: s.absorption, charges: s.charges, active: s.active });
       }
 
+      const rigIds = rigs as bigint[];
       setBalance(bal as bigint);
       setPendingRewards(pending as bigint);
-      setRigCount((rigs as bigint[]).length);
+      setRigCount(rigIds.length);
       setEffectiveHashrate(hashrate as bigint);
       setUsedPower(Number(power));
+
+      // Load individual rig data
+      if (rigIds.length > 0) {
+        try {
+          const rigDetails = await Promise.all(
+            rigIds.map(async (rigId) => {
+              const raw = await publicClient.readContract({
+                address: ADDRESSES.rigFactory,
+                abi: RIG_FACTORY_WRITE_ABI,
+                functionName: "getRig",
+                args: [rigId],
+              }) as any;
+              return {
+                rigId: Number(rigId),
+                tier: raw.tier,
+                baseHashrate: raw.baseHashrate,
+                powerDraw: Number(raw.powerDraw),
+                durability: Number(raw.durability),
+                maxDurability: Number(raw.maxDurability),
+                ownerAgentId: Number(raw.ownerAgentId),
+                active: raw.active,
+              } as RigData;
+            })
+          );
+          setRigs(rigDetails);
+        } catch {
+          setRigs([]);
+        }
+      } else {
+        setRigs([]);
+      }
     } catch (err: any) {
       log(`Data refresh failed: ${err.message?.slice(0, 60)}`, "error");
     }
@@ -259,8 +315,10 @@ export default function MiningPanel() {
     if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return false; }
     if (!agentId) { log("No agent found — register via the API first", "error"); return false; }
     if (heartbeatPendingRef.current) { log("Heartbeat already pending, skipping", "warn"); return false; }
+    if (txMutexRef.current) { log("Another transaction in progress, skipping heartbeat", "warn"); return false; }
     try {
       heartbeatPendingRef.current = true;
+      txMutexRef.current = true;
       setTxPending("heartbeat");
       const hash = await walletClient.writeContract({
         address: ADDRESSES.agentRegistry,
@@ -277,6 +335,7 @@ export default function MiningPanel() {
       return false;
     } finally {
       heartbeatPendingRef.current = false;
+      txMutexRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log]);
@@ -284,7 +343,9 @@ export default function MiningPanel() {
   const doClaim = useCallback(async () => {
     if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return false; }
     if (!agentId) { log("No agent found — register via the API first", "error"); return false; }
+    if (txMutexRef.current) { log("Another transaction in progress, skipping claim", "warn"); return false; }
     try {
+      txMutexRef.current = true;
       setTxPending("claim");
       const hash = await walletClient.writeContract({
         address: ADDRESSES.miningEngine,
@@ -300,6 +361,7 @@ export default function MiningPanel() {
       log(`Claim failed: ${err.message?.slice(0, 60)}`, "error");
       return false;
     } finally {
+      txMutexRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log]);
@@ -378,7 +440,9 @@ export default function MiningPanel() {
   const buyRig = useCallback(async (tier: number) => {
     if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
     if (!agentId) { log("No agent found — register via the API first", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
     try {
+      txMutexRef.current = true;
       setTxPending(`rig-${tier}`);
       // Get cost
       const cost = await publicClient.readContract({
@@ -418,6 +482,7 @@ export default function MiningPanel() {
     } catch (err: any) {
       log(`Rig purchase failed: ${err.message?.slice(0, 60)}`, "error");
     } finally {
+      txMutexRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log, refreshAgentData]);
@@ -425,18 +490,23 @@ export default function MiningPanel() {
   const upgradeFacility = useCallback(async () => {
     if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
     if (!agentId) { log("No agent found — register via the API first", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
     try {
+      txMutexRef.current = true;
       setTxPending("facility");
-      if (balance === 0n) {
-        log("No CHAOS balance — mine some rewards first", "error");
+      // Calculate exact upgrade cost based on current facility level
+      const nextLevel = facility ? facility.level + 1 : 1;
+      const cost = nextLevel < FACILITY_COSTS.length ? parseEther(String(FACILITY_COSTS[nextLevel])) : parseEther("25000");
+      if (balance < cost) {
+        log(`Not enough CHAOS — need ${formatEther(cost)}, have ${formatEther(balance)}`, "error");
         return;
       }
-      // Approve current balance (contract will use what it needs)
+      // Approve exact cost only
       let hash = await walletClient.writeContract({
         address: ADDRESSES.chaosToken,
         abi: CHAOS_TOKEN_WRITE_ABI,
         functionName: "approve",
-        args: [ADDRESSES.facilityManager, balance],
+        args: [ADDRESSES.facilityManager, cost],
       });
       await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
 
@@ -453,6 +523,114 @@ export default function MiningPanel() {
     } catch (err: any) {
       log(`Facility upgrade failed: ${err.message?.slice(0, 60)}`, "error");
     } finally {
+      txMutexRef.current = false;
+      setTxPending(null);
+    }
+  }, [walletClient, agentId, publicClient, log, refreshAgentData]);
+
+  const maintainFacility = useCallback(async () => {
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
+    try {
+      txMutexRef.current = true;
+      setTxPending("maintain");
+      // Maintenance cost is roughly 10% of facility upgrade cost
+      const maintenanceCost = facility ? parseEther(String(Math.max(100, FACILITY_COSTS[facility.level] * 0.1))) : parseEther("100");
+      if (balance < maintenanceCost) {
+        log(`Not enough CHAOS — need ~${formatEther(maintenanceCost)}, have ${formatEther(balance)}`, "error");
+        return;
+      }
+      // Approve exact maintenance cost
+      let hash = await walletClient.writeContract({
+        address: ADDRESSES.chaosToken,
+        abi: CHAOS_TOKEN_WRITE_ABI,
+        functionName: "approve",
+        args: [ADDRESSES.facilityManager, maintenanceCost],
+      });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+
+      log("Maintaining facility...", "info");
+      hash = await walletClient.writeContract({
+        address: ADDRESSES.facilityManager,
+        abi: FACILITY_WRITE_ABI,
+        functionName: "maintainFacility",
+        args: [BigInt(agentId)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+      log("Facility maintained! Condition restored.", "success");
+      await refreshAgentData();
+    } catch (err: any) {
+      log(`Maintain failed: ${err.message?.slice(0, 60)}`, "error");
+    } finally {
+      txMutexRef.current = false;
+      setTxPending(null);
+    }
+  }, [walletClient, agentId, publicClient, log, refreshAgentData, balance, facility]);
+
+  const repairRig = useCallback(async (rigId: number) => {
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
+    try {
+      txMutexRef.current = true;
+      setTxPending(`repair-${rigId}`);
+      // Repair cost scales with rig tier — estimate ~20% of purchase cost
+      const rig = rigs.find(r => r.rigId === rigId);
+      const repairCost = rig ? parseEther(String(Math.max(50, RIG_COSTS[rig.tier] * 0.2))) : parseEther("500");
+      if (balance < repairCost) {
+        log(`Not enough CHAOS — need ~${formatEther(repairCost)}, have ${formatEther(balance)}`, "error");
+        return;
+      }
+      // Approve exact repair cost
+      let hash = await walletClient.writeContract({
+        address: ADDRESSES.chaosToken,
+        abi: CHAOS_TOKEN_WRITE_ABI,
+        functionName: "approve",
+        args: [ADDRESSES.rigFactory, repairCost],
+      });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+
+      log(`Repairing rig #${rigId}...`, "info");
+      hash = await walletClient.writeContract({
+        address: ADDRESSES.rigFactory,
+        abi: RIG_FACTORY_WRITE_ABI,
+        functionName: "repairRig",
+        args: [BigInt(rigId)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+      log(`Rig #${rigId} repaired!`, "success");
+      await refreshAgentData();
+    } catch (err: any) {
+      log(`Repair failed: ${err.message?.slice(0, 60)}`, "error");
+    } finally {
+      txMutexRef.current = false;
+      setTxPending(null);
+    }
+  }, [walletClient, agentId, publicClient, log, refreshAgentData, balance, rigs]);
+
+  const toggleRig = useCallback(async (rigId: number, currentlyActive: boolean) => {
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
+    const action = currentlyActive ? "unequipRig" : "equipRig";
+    try {
+      txMutexRef.current = true;
+      setTxPending(`toggle-${rigId}`);
+      log(`${currentlyActive ? "Unequipping" : "Equipping"} rig #${rigId}...`, "info");
+      const hash = await walletClient.writeContract({
+        address: ADDRESSES.rigFactory,
+        abi: RIG_FACTORY_WRITE_ABI,
+        functionName: action,
+        args: [BigInt(rigId)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+      log(`Rig #${rigId} ${currentlyActive ? "unequipped" : "equipped"}!`, "success");
+      await refreshAgentData();
+    } catch (err: any) {
+      log(`${currentlyActive ? "Unequip" : "Equip"} failed: ${err.message?.slice(0, 60)}`, "error");
+    } finally {
+      txMutexRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log, refreshAgentData]);
@@ -460,17 +638,21 @@ export default function MiningPanel() {
   const buyShield = useCallback(async (tier: number) => {
     if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
     if (!agentId) { log("No agent found — register via the API first", "error"); return; }
+    if (txMutexRef.current) { log("Another transaction in progress, please wait", "warn"); return; }
     try {
+      txMutexRef.current = true;
       setTxPending(`shield-${tier}`);
-      if (balance === 0n) {
-        log("No CHAOS balance — mine some rewards first", "error");
+      const shieldCost = parseEther(String(SHIELD_COSTS[tier] || 5000));
+      if (balance < shieldCost) {
+        log(`Not enough CHAOS — need ${formatEther(shieldCost)}, have ${formatEther(balance)}`, "error");
         return;
       }
+      // Approve exact shield cost
       let hash = await walletClient.writeContract({
         address: ADDRESSES.chaosToken,
         abi: CHAOS_TOKEN_WRITE_ABI,
         functionName: "approve",
-        args: [ADDRESSES.shieldManager, balance],
+        args: [ADDRESSES.shieldManager, shieldCost],
       });
       await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
 
@@ -487,6 +669,7 @@ export default function MiningPanel() {
     } catch (err: any) {
       log(`Shield purchase failed: ${err.message?.slice(0, 60)}`, "error");
     } finally {
+      txMutexRef.current = false;
       setTxPending(null);
     }
   }, [walletClient, agentId, publicClient, log, refreshAgentData]);
@@ -647,28 +830,103 @@ export default function MiningPanel() {
   }
 
   if (!agentId || !agent) {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://chaoscoin-production.up.railway.app";
+
+    const handleRegister = async () => {
+      if (!address) return;
+      setRegistering(true);
+      setRegisterError(null);
+      try {
+        const res = await fetch(`${apiBase}/api/onboard/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operatorAddress: address }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setRegisterError(data.error || `Registration failed (${res.status})`);
+          return;
+        }
+        log(`Agent #${data.agentId} registered! Tx: ${data.txHash?.slice(0, 10)}...`, "success");
+        await lookupAgent();
+      } catch (err: any) {
+        setRegisterError(err.message || "Network error");
+      } finally {
+        setRegistering(false);
+      }
+    };
+
     return (
       <div className="rounded-xl border border-white/10 p-6 sm:p-8" style={{ backgroundColor: "#0A0E18" }}>
         <div className="text-center mb-5">
-          <h2 className="text-lg font-bold text-white mb-2">No Agent Found</h2>
+          <h2 className="text-lg font-bold text-white mb-2">Complete Agent Registration</h2>
           <p className="text-gray-400 text-sm">
-            Wallet <span className="text-white font-mono text-xs">{address?.slice(0, 6)}...{address?.slice(-4)}</span> is not registered as an agent operator.
+            Wallet <span className="text-white font-mono text-xs">{address?.slice(0, 6)}...{address?.slice(-4)}</span> is not registered as an agent operator yet.
           </p>
         </div>
 
+        {/* Quick Registration Card */}
+        <div className="rounded-lg border border-white/10 p-5 mb-5 space-y-4" style={{ backgroundColor: "#0D1220" }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#00E5A0" }} />
+            <h3 className="text-sm font-semibold text-white">Quick Register</h3>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Your agent generated this wallet via the onboarding API. If it&apos;s funded with MON, you can finish registration right here.
+          </p>
+
+          {/* MON balance check */}
+          {monBalance !== null && monBalance < parseEther("0.01") && (
+            <div className="rounded-lg border border-yellow-500/30 p-3 flex items-center gap-3" style={{ backgroundColor: "#1a1500" }}>
+              <span className="text-yellow-400 text-lg flex-shrink-0">&#9888;</span>
+              <div className="flex-1">
+                <div className="text-yellow-400 text-xs font-semibold">Fund this wallet first</div>
+                <div className="text-yellow-400/70 text-[10px]">
+                  Need at least 0.01 MON for gas. Current: {monBalance === 0n ? "0" : parseFloat(formatEther(monBalance)).toFixed(4)} MON
+                </div>
+              </div>
+              <a
+                href="https://faucet.monad.xyz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-black flex-shrink-0"
+                style={{ background: "#F59E0B" }}
+              >
+                Get MON
+              </a>
+            </div>
+          )}
+
+          {registerError && (
+            <div className="rounded-lg border border-red-500/30 p-2.5 text-xs text-red-400" style={{ backgroundColor: "#1a000008" }}>
+              {registerError}
+            </div>
+          )}
+
+          <button
+            onClick={handleRegister}
+            disabled={registering || (monBalance !== null && monBalance < parseEther("0.01"))}
+            className="w-full py-3 rounded-lg font-semibold text-sm text-white transition-all hover:brightness-125 btn-press disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg, #00E5A0, #00D4FF)" }}
+          >
+            {registering ? "Registering..." : "Complete Registration"}
+          </button>
+        </div>
+
+        {/* Agent onboarding steps (for context) */}
         <div className="rounded-lg border border-white/5 p-4 mb-5 space-y-3" style={{ backgroundColor: "#0D1220" }}>
-          <h3 className="text-sm font-semibold text-gray-300">How to Register</h3>
+          <h3 className="text-sm font-semibold text-gray-400">Full Agent Flow</h3>
           <div className="flex gap-3 items-start">
             <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#7B61FF30", color: "#7B61FF" }}>1</span>
             <div>
-              <div className="text-xs text-gray-300 font-medium">Get a wallet via the onboarding API</div>
+              <div className="text-xs text-gray-300 font-medium">Agent calls onboarding API to get a wallet</div>
               <div className="text-[10px] text-gray-500 mt-0.5 font-mono break-all">POST /api/onboard</div>
             </div>
           </div>
           <div className="flex gap-3 items-start">
             <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#00E5A030", color: "#00E5A0" }}>2</span>
             <div>
-              <div className="text-xs text-gray-300 font-medium">Fund with MON for gas fees</div>
+              <div className="text-xs text-gray-300 font-medium">Owner funds with MON for gas fees</div>
               <div className="text-[10px] text-gray-500 mt-0.5">
                 Get testnet MON from{" "}
                 <a href="https://faucet.monad.xyz" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#00D4FF" }}>faucet.monad.xyz</a>
@@ -678,7 +936,7 @@ export default function MiningPanel() {
           <div className="flex gap-3 items-start">
             <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "#00D4FF30", color: "#00D4FF" }}>3</span>
             <div>
-              <div className="text-xs text-gray-300 font-medium">Register the agent on-chain</div>
+              <div className="text-xs text-gray-300 font-medium">Register on-chain (API or button above)</div>
               <div className="text-[10px] text-gray-500 mt-0.5 font-mono break-all">POST /api/onboard/register</div>
             </div>
           </div>
@@ -805,7 +1063,7 @@ export default function MiningPanel() {
         <StatCard label="Total Mined" value={fmtChaos(agent.totalMined)} color="#FFA500" />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Rigs" value={`${rigCount}`} color="#48BB78" />
         <StatCard
           label="Facility"
@@ -813,6 +1071,11 @@ export default function MiningPanel() {
           color="#3498DB"
         />
         <StatCard label="Power" value={facility ? `${usedPower}/${facility.powerOutput}W` : "0/0W"} color="#ECC94B" />
+        <StatCard
+          label="Condition"
+          value={facility ? `${facility.maxCondition > 0 ? Math.round((facility.condition / facility.maxCondition) * 100) : 100}%` : "100%"}
+          color={facility && facility.maxCondition > 0 && (facility.condition / facility.maxCondition) < 0.5 ? "#FF4444" : facility && facility.maxCondition > 0 && (facility.condition / facility.maxCondition) < 0.8 ? "#FFA500" : "#00E5A0"}
+        />
         <StatCard
           label="Shield"
           value={shield?.tier ? `${SHIELD_NAMES[shield.tier]} (${shield.charges})` : "None"}
@@ -838,6 +1101,20 @@ export default function MiningPanel() {
           >
             {txPending === "claim" ? "..." : "Claim Rewards"}
           </button>
+          {facility && facility.maxCondition > 0 && facility.condition < facility.maxCondition && (
+            <button
+              onClick={maintainFacility}
+              disabled={!!txPending}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 hover:brightness-125"
+              style={{
+                backgroundColor: "#FF6B3515",
+                color: "#FF6B35",
+                border: "1px solid #FF6B3540",
+              }}
+            >
+              {txPending === "maintain" ? "..." : "Maintain Facility"}
+            </button>
+          )}
           <span className="w-px h-6 bg-white/10 self-center" />
 
           {/* Rigs */}
@@ -941,6 +1218,97 @@ export default function MiningPanel() {
           </button>
         </div>
       </div>
+
+      {/* Rig Inventory */}
+      {rigs.length > 0 && (
+        <div className="rounded-xl border border-white/10 p-4" style={{ backgroundColor: "#0A0E18" }}>
+          <h3 className="text-sm font-semibold text-gray-400 mb-3">Rig Inventory</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {rigs.map((rig) => {
+              const durPct = rig.maxDurability > 0 ? Math.round((rig.durability / rig.maxDurability) * 100) : 100;
+              const durColor = durPct < 30 ? "#FF4444" : durPct < 70 ? "#FFA500" : "#00E5A0";
+              return (
+                <div
+                  key={rig.rigId}
+                  className="rounded-lg border p-3 relative"
+                  style={{
+                    backgroundColor: "#0D1220",
+                    borderColor: `${RIG_TIER_COLORS[rig.tier]}30`,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: `${RIG_TIER_COLORS[rig.tier]}20`, color: RIG_TIER_COLORS[rig.tier] }}
+                      >
+                        T{rig.tier}
+                      </span>
+                      <span className="text-xs text-white font-medium">{RIG_NAMES[rig.tier]}</span>
+                    </div>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{
+                        backgroundColor: rig.active ? "#00E5A015" : "#6B728015",
+                        color: rig.active ? "#00E5A0" : "#6B7280",
+                        border: `1px solid ${rig.active ? "#00E5A030" : "#6B728030"}`,
+                      }}
+                    >
+                      {rig.active ? "Active" : "Idle"}
+                    </span>
+                  </div>
+
+                  {/* Durability bar */}
+                  <div className="mb-2">
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-gray-500">Durability</span>
+                      <span style={{ color: durColor }}>{durPct}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${durPct}%`, backgroundColor: durColor }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex justify-between text-[10px] text-gray-500 mb-2">
+                    <span>Hash: <span className="text-white" style={{ fontFamily: "monospace" }}>{RIG_HASHRATES[rig.tier]} H/s</span></span>
+                    <span>Power: <span className="text-white" style={{ fontFamily: "monospace" }}>{rig.powerDraw}W</span></span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-1.5">
+                    {durPct < 70 && (
+                      <button
+                        onClick={() => repairRig(rig.rigId)}
+                        disabled={!!txPending}
+                        className="flex-1 px-2 py-1 rounded text-[10px] font-medium transition-colors disabled:opacity-50 hover:brightness-125"
+                        style={{ backgroundColor: "#FFA50015", color: "#FFA500", border: "1px solid #FFA50030" }}
+                      >
+                        {txPending === `repair-${rig.rigId}` ? "..." : "Repair"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => toggleRig(rig.rigId, rig.active)}
+                      disabled={!!txPending}
+                      className="flex-1 px-2 py-1 rounded text-[10px] font-medium transition-colors disabled:opacity-50 hover:brightness-125"
+                      style={{
+                        backgroundColor: rig.active ? "#FF444415" : "#00E5A015",
+                        color: rig.active ? "#FF4444" : "#00E5A0",
+                        border: `1px solid ${rig.active ? "#FF444430" : "#00E5A030"}`,
+                      }}
+                    >
+                      {txPending === `toggle-${rig.rigId}` ? "..." : rig.active ? "Unequip" : "Equip"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Item Info Modal */}
       {modalItem && (

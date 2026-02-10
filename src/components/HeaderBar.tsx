@@ -18,6 +18,7 @@ interface HeaderBarProps {
   totalBurned: string;
   lastEventBlock: string;
   eventCooldown: number;
+  currentPath?: string;
 }
 
 export default function HeaderBar({
@@ -26,6 +27,7 @@ export default function HeaderBar({
   totalBurned,
   lastEventBlock,
   eventCooldown,
+  currentPath = "/",
 }: HeaderBarProps) {
   const burnRef = useRef<HTMLSpanElement>(null);
   const prevBurnedRef = useRef<string>(totalBurned);
@@ -91,9 +93,10 @@ export default function HeaderBar({
             href="/marketplace"
             className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
             style={{
-              backgroundColor: "#00D4FF15",
+              backgroundColor: currentPath === "/marketplace" ? "#00D4FF30" : "#00D4FF15",
               color: "#00D4FF",
-              border: "1px solid #00D4FF30",
+              border: currentPath === "/marketplace" ? "1px solid #00D4FF70" : "1px solid #00D4FF30",
+              boxShadow: currentPath === "/marketplace" ? "0 0 8px #00D4FF30" : "none",
             }}
           >
             Marketplace
@@ -104,9 +107,10 @@ export default function HeaderBar({
             href="/mine"
             className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
             style={{
-              backgroundColor: "#00E5A015",
+              backgroundColor: currentPath === "/mine" ? "#00E5A030" : "#00E5A015",
               color: "#00E5A0",
-              border: "1px solid #00E5A030",
+              border: currentPath === "/mine" ? "1px solid #00E5A070" : "1px solid #00E5A030",
+              boxShadow: currentPath === "/mine" ? "0 0 8px #00E5A030" : "none",
             }}
           >
             Mine
@@ -117,9 +121,10 @@ export default function HeaderBar({
             href="/trade"
             className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
             style={{
-              backgroundColor: "#FF9D3D15",
+              backgroundColor: currentPath === "/trade" ? "#FF9D3D30" : "#FF9D3D15",
               color: "#FF9D3D",
-              border: "1px solid #FF9D3D30",
+              border: currentPath === "/trade" ? "1px solid #FF9D3D70" : "1px solid #FF9D3D30",
+              boxShadow: currentPath === "/trade" ? "0 0 8px #FF9D3D30" : "none",
             }}
           >
             Trade

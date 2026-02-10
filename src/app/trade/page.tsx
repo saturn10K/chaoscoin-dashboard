@@ -18,6 +18,7 @@ export default function TradePage() {
         totalBurned={data?.totalBurned ?? "0"}
         lastEventBlock={data?.lastEventBlock ?? "0"}
         eventCooldown={data?.eventCooldown ?? 75000}
+        currentPath="/trade"
       />
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
