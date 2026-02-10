@@ -121,21 +121,8 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="rounded-lg p-4 flex-1 glow-border animate-fade-in-up" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.1)", animationDelay: "100ms" }}>
-            <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider" style={{ color: "#7B61FF" }}>
-              Leaderboard
-            </h2>
-            {isLive && data.totalAgents === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                No agents registered yet. Be the first pioneer!
-              </div>
-            ) : !isLive ? (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                Waiting for chain connection...
-              </div>
-            ) : (
-              <Leaderboard agents={agents} currentBlock={currentBlock} onSelectAgent={setSelectedAgent} />
-            )}
+          <div className="flex-1 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            <Leaderboard agents={agents} currentBlock={currentBlock} onSelectAgent={setSelectedAgent} />
           </div>
         </div>
 
