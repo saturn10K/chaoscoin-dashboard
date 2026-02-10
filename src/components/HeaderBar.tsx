@@ -65,12 +65,14 @@ export default function HeaderBar({
       >
         {/* Logo */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <img
-            src="/assets/logos/logo.png"
-            alt="Chaoscoin"
-            className="h-6 sm:h-[30px]"
-            style={{ filter: "brightness(1.1)" }}
-          />
+          <Link href="/">
+            <img
+              src="/assets/logos/logo.png"
+              alt="Chaoscoin"
+              className="h-6 sm:h-[30px] cursor-pointer transition-transform hover:scale-105"
+              style={{ filter: "brightness(1.1)" }}
+            />
+          </Link>
 
           {/* Era Badge */}
           <span
