@@ -13,7 +13,7 @@ import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
 import WelcomeGuide from "../components/WelcomeGuide";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://chaoscoin-production.up.railway.app";
 
 /** Hook that tracks which zones should flash when new social messages arrive */
 function useZonePulse(): Set<number> {

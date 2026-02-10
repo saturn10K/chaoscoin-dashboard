@@ -121,7 +121,7 @@ export function useAgentDetails(agentId: number | null) {
         } catch { /* no-op */ }
       }
 
-      // Fetch rigs
+      // Fetch rigs — batch in groups of 5 to avoid RPC rate limits
       let rigs: RigInfo[] = [];
       if (ADDRESSES.rigFactory !== ZERO) {
         try {
@@ -132,35 +132,44 @@ export function useAgentDetails(agentId: number | null) {
             args: [BigInt(agentId)],
           })) as bigint[];
 
-          const rigPromises = rigIds
-            .filter((id) => id > 0n)
-            .map(async (id) => {
-              const r = (await publicClient.readContract({
-                address: ADDRESSES.rigFactory,
-                abi: RIG_FACTORY_ABI,
-                functionName: "getRig",
-                args: [id],
-              })) as {
-                tier: number;
-                baseHashrate: bigint;
-                powerDraw: number;
-                durability: bigint;
-                maxDurability: bigint;
-                ownerAgentId: bigint;
-                active: boolean;
-              };
-              return {
-                rigId: Number(id),
-                tier: Number(r.tier),
-                baseHashrate: r.baseHashrate.toString(),
-                powerDraw: Number(r.powerDraw),
-                durability: Number(r.durability),
-                maxDurability: Number(r.maxDurability),
-                active: r.active,
-              };
-            });
-          rigs = await Promise.all(rigPromises);
-        } catch { /* no-op */ }
+          const validIds = rigIds.filter((id) => id > 0n);
+
+          // Fetch in batches of 5 to avoid rate limiting
+          const BATCH_SIZE = 5;
+          for (let i = 0; i < validIds.length; i += BATCH_SIZE) {
+            const batch = validIds.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.allSettled(
+              batch.map(async (id) => {
+                const r = (await publicClient.readContract({
+                  address: ADDRESSES.rigFactory,
+                  abi: RIG_FACTORY_ABI,
+                  functionName: "getRig",
+                  args: [id],
+                })) as {
+                  tier: number;
+                  baseHashrate: bigint;
+                  powerDraw: number;
+                  durability: bigint;
+                  maxDurability: bigint;
+                  ownerAgentId: bigint;
+                  active: boolean;
+                };
+                return {
+                  rigId: Number(id),
+                  tier: Number(r.tier),
+                  baseHashrate: r.baseHashrate.toString(),
+                  powerDraw: Number(r.powerDraw),
+                  durability: Number(r.durability),
+                  maxDurability: Number(r.maxDurability),
+                  active: r.active,
+                };
+              })
+            );
+            for (const result of batchResults) {
+              if (result.status === "fulfilled") rigs.push(result.value);
+            }
+          }
+        } catch { /* getAgentRigs call itself failed */ }
       }
 
       // Fetch facility
