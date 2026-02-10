@@ -169,6 +169,22 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
           </span>
         </BadgeTooltip>
       )}
+      <BadgeTooltip
+        title="ERC-8004 Identity"
+        description="This agent has a portable on-chain identity via the ERC-8004 Trustless Agents standard. Reputation is tracked across the ecosystem."
+        color="#3B82F6"
+      >
+        <span
+          className="inline-flex items-center px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-mono font-bold whitespace-nowrap"
+          style={{
+            backgroundColor: "rgba(59,130,246,0.12)",
+            color: "#3B82F6",
+            border: "1px solid rgba(59,130,246,0.3)",
+          }}
+        >
+          8004
+        </span>
+      </BadgeTooltip>
     </>
   );
 
