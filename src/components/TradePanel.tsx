@@ -15,11 +15,12 @@ const CHAOS_SWAP_ABI = [
   { inputs: [{ type: "uint256" }], name: "swapToGame", outputs: [], stateMutability: "nonpayable", type: "function" },
   { inputs: [], name: "gameReserve", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [], name: "nadReserve", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-  { inputs: [], name: "feeBps", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "feeToNadBps", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "feeToGameBps", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [{ type: "uint256" }, { type: "bool" }], name: "getAmountOut", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [], name: "totalSwappedToNad", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [], name: "totalSwappedToGame", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
-  { inputs: [], name: "totalFeeBurned", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "totalFeeCollected", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [], name: "paused", outputs: [{ type: "bool" }], stateMutability: "view", type: "function" },
 ] as const;
 
@@ -58,7 +59,8 @@ export default function TradePanel() {
   const [direction, setDirection] = useState<Direction>("toNad");
   const [inputAmount, setInputAmount] = useState("");
   const [amountOut, setAmountOut] = useState<bigint>(0n);
-  const [feeBps, setFeeBps] = useState(0n);
+  const [feeToNadBps, setFeeToNadBps] = useState(0n);
+  const [feeToGameBps, setFeeToGameBps] = useState(0n);
   const [isPaused, setIsPaused] = useState(false);
 
   // Stats
@@ -76,18 +78,20 @@ export default function TradePanel() {
   const refreshData = useCallback(async () => {
     if (isZeroAddress) return;
     try {
-      const [gr, nr, fee, paused, ttn, ttg, tf] = await Promise.all([
+      const [gr, nr, ftn, ftg, paused, ttn, ttg, tf] = await Promise.all([
         publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "gameReserve" }),
         publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "nadReserve" }),
-        publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "feeBps" }),
+        publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "feeToNadBps" }),
+        publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "feeToGameBps" }),
         publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "paused" }),
         publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "totalSwappedToNad" }),
         publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "totalSwappedToGame" }),
-        publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "totalFeeBurned" }),
+        publicClient.readContract({ address: CHAOS_SWAP_ADDRESS, abi: CHAOS_SWAP_ABI, functionName: "totalFeeCollected" }),
       ]);
       setGameReserve(gr as bigint);
       setNadReserve(nr as bigint);
-      setFeeBps(fee as bigint);
+      setFeeToNadBps(ftn as bigint);
+      setFeeToGameBps(ftg as bigint);
       setIsPaused(paused as boolean);
       setTotalToNad(ttn as bigint);
       setTotalToGame(ttg as bigint);
@@ -260,7 +264,7 @@ export default function TradePanel() {
         <InfoCard label="pCHAOS Reserve" value={fmtBig(gameReserve)} color="#00E5A0" />
         <InfoCard label="$CHAOS Reserve" value={fmtBig(nadReserve)} color="#7B61FF" />
         <InfoCard label="Total Swapped" value={fmtBig(totalToNad + totalToGame)} color="#00D4FF" />
-        <InfoCard label="Fee Burned" value={fmtBig(totalFee)} color="#FF6B35" />
+        <InfoCard label="Fees Collected" value={fmtBig(totalFee)} color="#FF6B35" />
       </div>
 
       {/* Swap card */}
@@ -271,11 +275,9 @@ export default function TradePanel() {
             <span className="text-[10px] text-gray-500" style={{ fontFamily: "monospace" }}>
               210 pCHAOS = 1 $CHAOS
             </span>
-            {feeBps > 0n && (
-              <span className="text-[10px] text-gray-500">
-                Fee: {(Number(feeBps) / 100).toFixed(1)}%
-              </span>
-            )}
+            <span className="text-[10px] text-gray-500">
+              Fee: {(Number(direction === "toNad" ? feeToNadBps : feeToGameBps) / 100).toFixed(0)}%
+            </span>
           </div>
         </div>
 
