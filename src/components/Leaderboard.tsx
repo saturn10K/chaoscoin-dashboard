@@ -84,8 +84,11 @@ function rankColor(idx: number): string {
   return "#6B7280";
 }
 
+const LB_PAGE_SIZE = 15;
+
 export default function Leaderboard({ agents, currentBlock, onSelectAgent }: LeaderboardProps) {
   const [sortBy, setSortBy] = useState<SortKey>("hashrate");
+  const [page, setPage] = useState(0);
   const { alliances } = useAlliances();
 
   // Build alliance partner map for badge display
@@ -116,6 +119,13 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
     });
     return copy;
   }, [agents, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / LB_PAGE_SIZE));
+  const pageStart = page * LB_PAGE_SIZE;
+  const pagedAgents = sorted.slice(pageStart, pageStart + LB_PAGE_SIZE);
+
+  // Reset page on sort change
+  const handleSort = (key: SortKey) => { setSortBy(key); setPage(0); };
 
   // Shared badge renderer for both layouts
   const renderBadges = (agent: Agent) => (
@@ -205,7 +215,7 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
           {SORT_TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setSortBy(tab.key)}
+              onClick={() => handleSort(tab.key)}
               className="px-1.5 sm:px-2.5 py-1 rounded text-[10px] sm:text-xs font-medium transition-colors btn-press tab-btn"
               style={{
                 backgroundColor:
@@ -259,7 +269,9 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 </td>
               </tr>
             )}
-            {sorted.map((agent, idx) => (
+            {pagedAgents.map((agent, idx) => {
+              const rank = pageStart + idx;
+              return (
               <tr
                 key={agent.agentId}
                 className="hover:bg-white/[0.04] transition-colors cursor-pointer row-hover"
@@ -269,9 +281,9 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 <td className="px-4 py-2.5">
                   <span
                     className="text-xs font-bold"
-                    style={{ fontFamily: "monospace", color: rankColor(idx) }}
+                    style={{ fontFamily: "monospace", color: rankColor(rank) }}
                   >
-                    {idx + 1}
+                    {rank + 1}
                   </span>
                 </td>
 
@@ -331,7 +343,8 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                   {renderStatus(agent)}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -343,7 +356,8 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
             No agents registered yet
           </div>
         )}
-        {sorted.map((agent, idx) => {
+        {pagedAgents.map((agent, idx) => {
+          const rank = pageStart + idx;
           const status = getAgentStatus(agent, currentBlock);
           const cfg = STATUS_CONFIG[status];
           return (
@@ -357,9 +371,9 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 {/* Rank */}
                 <span
                   className="text-xs font-bold flex-shrink-0 w-5 text-center"
-                  style={{ fontFamily: "monospace", color: rankColor(idx) }}
+                  style={{ fontFamily: "monospace", color: rankColor(rank) }}
                 >
-                  {idx + 1}
+                  {rank + 1}
                 </span>
 
                 {/* Agent ID */}
@@ -418,6 +432,34 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
           );
         })}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-3 sm:px-4 py-2 border-t border-white/5 flex items-center justify-between">
+          <span className="text-[10px] text-gray-600">
+            {sorted.length} agents
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="px-2 py-0.5 rounded text-[10px] text-gray-400 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            <span className="text-[10px] text-gray-500 px-2">
+              {page + 1}/{totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="px-2 py-0.5 rounded text-[10px] text-gray-400 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

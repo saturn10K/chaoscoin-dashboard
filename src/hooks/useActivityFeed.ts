@@ -11,12 +11,14 @@ export interface ActivityItem {
   detail: string;
   blockNumber: bigint;
   txHash: string;
+  timestamp: number; // ms since epoch
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const POLL_INTERVAL = 10_000;
-const MAX_ITEMS = 50;
+const MAX_ITEMS = 200;
 const LOOKBACK_BLOCKS = 5000n; // ~20-40 min of history on first load
+const STORAGE_KEY = "chaoscoin_activity_feed";
 
 // Event signatures — must match contract definitions exactly
 const EVENTS = {
@@ -32,11 +34,35 @@ const EVENTS = {
   migrated: parseAbiItem("event AgentMigrated(uint256 indexed agentId, uint8 fromZone, uint8 toZone, uint256 cost, uint256 burned)"),
 };
 
+function loadPersistedItems(): ActivityItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as any[];
+    return parsed.map((item) => ({
+      ...item,
+      blockNumber: BigInt(item.blockNumber),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function persistItems(items: ActivityItem[]) {
+  try {
+    const serializable = items.slice(0, MAX_ITEMS).map((item) => ({
+      ...item,
+      blockNumber: item.blockNumber.toString(),
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+  } catch {}
+}
+
 export function useActivityFeed() {
-  const [items, setItems] = useState<ActivityItem[]>([]);
+  const [items, setItems] = useState<ActivityItem[]>(() => loadPersistedItems());
   const [loading, setLoading] = useState(true);
   const lastBlockRef = useRef<bigint>(0n);
-  const seenTxRef = useRef<Set<string>>(new Set());
+  const seenTxRef = useRef<Set<string>>(new Set(loadPersistedItems().map((i) => i.id)));
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -194,7 +220,9 @@ export function useActivityFeed() {
         setItems((prev) => {
           const combined = [...newItems, ...prev];
           combined.sort((a, b) => Number(b.blockNumber - a.blockNumber));
-          return combined.slice(0, MAX_ITEMS);
+          const trimmed = combined.slice(0, MAX_ITEMS);
+          persistItems(trimmed);
+          return trimmed;
         });
       }
 
@@ -239,6 +267,7 @@ async function fetchEventLogs(
         detail: parsed.detail,
         blockNumber: log.blockNumber,
         txHash: log.transactionHash,
+        timestamp: Date.now(),
       };
     });
   } catch {

@@ -127,12 +127,15 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "combat", label: "Combat" },
 ];
 
+const PAGE_SIZE = 25;
+
 export default function ActivityFeed() {
   const { items: chainItems, loading: chainLoading } = useActivityFeed();
   const { alliances, events: allianceEvents, stats: allianceStats } = useAlliances();
   const { events: sabotageEvents, negotiations, stats: sabotageStats } = useSabotage();
   const [currentBlock, setCurrentBlock] = useState<bigint>(0n);
   const [filter, setFilter] = useState<FilterTab>("all");
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     const fetchBlock = async () => {
@@ -181,8 +184,14 @@ export default function ActivityFeed() {
     }
 
     items.sort((a, b) => b.sortKey - a.sortKey);
-    return items.slice(0, 80);
+    return items;
   }, [chainItems, allianceEvents, sabotageEvents, negotiations, currentBlock, filter]);
+
+  const totalPages = Math.max(1, Math.ceil(unifiedItems.length / PAGE_SIZE));
+  const pagedItems = unifiedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Reset page when filter changes
+  useEffect(() => { setPage(0); }, [filter]);
 
   const activeAlliances = alliances.filter((a) => a.active);
   const loading = chainLoading && chainItems.length === 0;
@@ -268,7 +277,7 @@ export default function ActivityFeed() {
           </div>
         ) : (
           <div className="divide-y divide-white/5">
-            {unifiedItems.map((item, idx) => {
+            {pagedItems.map((item, idx) => {
               if (item.kind === "chain" && item.chainItem) {
                 return <ChainRow key={item.chainItem.id} item={item.chainItem} currentBlock={currentBlock} />;
               }
@@ -286,6 +295,34 @@ export default function ActivityFeed() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-3 sm:px-4 py-2 border-t border-white/5 flex items-center justify-between">
+          <span className="text-[10px] text-gray-600">
+            {unifiedItems.length} events
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="px-2 py-0.5 rounded text-[10px] text-gray-400 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            <span className="text-[10px] text-gray-500 px-2">
+              {page + 1}/{totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="px-2 py-0.5 rounded text-[10px] text-gray-400 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
