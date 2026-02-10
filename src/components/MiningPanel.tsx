@@ -16,10 +16,17 @@ import {
 import {
   ZONE_NAMES,
   ZONE_COLORS,
+  ZONE_DESCRIPTIONS,
+  ZONE_BONUS_DETAIL,
+  ZONE_RISK,
+  ZONE_IMAGES,
   RIG_NAMES,
   RIG_TIER_COLORS,
+  RIG_IMAGES,
   FACILITY_NAMES,
+  FACILITY_IMAGES,
   SHIELD_NAMES,
+  SHIELD_IMAGES,
 } from "../lib/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -52,6 +59,44 @@ interface ShieldData {
 }
 
 type LogEntry = { ts: number; msg: string; type: "info" | "success" | "error" | "warn" };
+
+type ModalItem = {
+  kind: "rig" | "facility" | "shield" | "zone";
+  tier: number;
+  name: string;
+  image: string | null;
+  color: string;
+  description: string;
+  stats: { label: string; value: string }[];
+  action?: () => void;
+  actionLabel?: string;
+};
+
+const RIG_COSTS = [0, 500, 2_000, 10_000, 50_000];
+const RIG_HASHRATES = [15, 40, 100, 300, 1_000];
+const RIG_DESCRIPTIONS = [
+  "A humble potato-powered rig. Every miner starts here. Free but slow.",
+  "Cobbled together from salvage. A solid first upgrade for budget miners.",
+  "Harnesses wind currents for consistent hashing. The mid-game workhorse.",
+  "Molten-core processing unit. Serious hashpower for serious miners.",
+  "Captures subatomic particles for extreme computation. The endgame beast.",
+];
+
+const FACILITY_COSTS = [0, 5_000, 25_000];
+const FACILITY_SLOTS = [2, 4, 6];
+const FACILITY_DESCRIPTIONS = [
+  "A cramped underground den. Fits 2 rigs but keeps them hidden from cosmic storms.",
+  "Electrified cage that shields rigs from interference. Doubles your capacity to 4.",
+  "Military-grade bunker. Maximum protection and 6 rig slots for full fleet deployment.",
+];
+
+const SHIELD_COSTS = [0, 1_000, 5_000];
+const SHIELD_ABSORPTIONS = [0, 30, 60];
+const SHIELD_DESCRIPTIONS = [
+  "",
+  "Deflects minor cosmic debris. Absorbs 30% of event damage to protect your rigs.",
+  "Full electromagnetic barrier. Absorbs 60% of cosmic damage — essential for high-risk zones.",
+];
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as const;
 
@@ -86,6 +131,7 @@ export default function MiningPanel() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [txPending, setTxPending] = useState<string | null>(null);
+  const [modalItem, setModalItem] = useState<ModalItem | null>(null);
 
   const miningRef = useRef(false);
   const heartbeatPendingRef = useRef(false);
@@ -210,7 +256,8 @@ export default function MiningPanel() {
   // ─── Mining loop ─────────────────────────────────────────────────────────
 
   const doHeartbeat = useCallback(async () => {
-    if (!walletClient || !agentId || !publicClient) return false;
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return false; }
+    if (!agentId) { log("No agent found — register via the API first", "error"); return false; }
     if (heartbeatPendingRef.current) { log("Heartbeat already pending, skipping", "warn"); return false; }
     try {
       heartbeatPendingRef.current = true;
@@ -235,7 +282,8 @@ export default function MiningPanel() {
   }, [walletClient, agentId, publicClient, log]);
 
   const doClaim = useCallback(async () => {
-    if (!walletClient || !agentId || !publicClient) return false;
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return false; }
+    if (!agentId) { log("No agent found — register via the API first", "error"); return false; }
     try {
       setTxPending("claim");
       const hash = await walletClient.writeContract({
@@ -257,7 +305,8 @@ export default function MiningPanel() {
   }, [walletClient, agentId, publicClient, log]);
 
   const startMining = useCallback(async () => {
-    if (!walletClient || !agentId) return;
+    if (!walletClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found for this wallet — register via the API first (POST /api/onboard)", "error"); return; }
     setMining(true);
     miningRef.current = true;
     log("Mining started — heartbeats every 30s, claims every 2m", "success");
@@ -327,7 +376,8 @@ export default function MiningPanel() {
   // ─── Manual actions ──────────────────────────────────────────────────────
 
   const buyRig = useCallback(async (tier: number) => {
-    if (!walletClient || !agentId || !publicClient) return;
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found — register via the API first", "error"); return; }
     try {
       setTxPending(`rig-${tier}`);
       // Get cost
@@ -373,7 +423,8 @@ export default function MiningPanel() {
   }, [walletClient, agentId, publicClient, log, refreshAgentData]);
 
   const upgradeFacility = useCallback(async () => {
-    if (!walletClient || !agentId || !publicClient) return;
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found — register via the API first", "error"); return; }
     try {
       setTxPending("facility");
       if (balance === 0n) {
@@ -407,7 +458,8 @@ export default function MiningPanel() {
   }, [walletClient, agentId, publicClient, log, refreshAgentData]);
 
   const buyShield = useCallback(async (tier: number) => {
-    if (!walletClient || !agentId || !publicClient) return;
+    if (!walletClient || !publicClient) { log("Wallet not connected", "error"); return; }
+    if (!agentId) { log("No agent found — register via the API first", "error"); return; }
     try {
       setTxPending(`shield-${tier}`);
       if (balance === 0n) {
@@ -787,10 +839,23 @@ export default function MiningPanel() {
             {txPending === "claim" ? "..." : "Claim Rewards"}
           </button>
           <span className="w-px h-6 bg-white/10 self-center" />
+
+          {/* Rigs */}
           {[0, 1, 2, 3, 4].map((tier) => (
             <button
               key={tier}
-              onClick={() => buyRig(tier)}
+              onClick={() => setModalItem({
+                kind: "rig", tier, name: RIG_NAMES[tier], image: RIG_IMAGES[tier],
+                color: RIG_TIER_COLORS[tier],
+                description: RIG_DESCRIPTIONS[tier],
+                stats: [
+                  { label: "Hashrate", value: `${RIG_HASHRATES[tier]} H/s` },
+                  { label: "Cost", value: RIG_COSTS[tier] === 0 ? "Free" : `${RIG_COSTS[tier].toLocaleString()} CHAOS` },
+                  { label: "Tier", value: `T${tier}` },
+                ],
+                action: tier > 0 ? () => { setModalItem(null); buyRig(tier); } : undefined,
+                actionLabel: tier > 0 ? `Buy ${RIG_NAMES[tier]}` : undefined,
+              })}
               disabled={!!txPending}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 hover:brightness-125"
               style={{
@@ -799,29 +864,88 @@ export default function MiningPanel() {
                 border: `1px solid ${RIG_TIER_COLORS[tier]}40`,
               }}
             >
-              {txPending === `rig-${tier}` ? "..." : `Buy ${RIG_NAMES[tier]}`}
+              {txPending === `rig-${tier}` ? "..." : RIG_NAMES[tier]}
             </button>
           ))}
           <span className="w-px h-6 bg-white/10 self-center" />
-          <button
-            onClick={upgradeFacility}
-            disabled={!!txPending}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
-          >
-            {txPending === "facility" ? "..." : "Upgrade Facility"}
-          </button>
+
+          {/* Facilities */}
+          {[0, 1, 2].map((level) => (
+            <button
+              key={level}
+              onClick={() => setModalItem({
+                kind: "facility", tier: level, name: FACILITY_NAMES[level], image: FACILITY_IMAGES[level],
+                color: "#3498DB",
+                description: FACILITY_DESCRIPTIONS[level],
+                stats: [
+                  { label: "Rig Slots", value: `${FACILITY_SLOTS[level]}` },
+                  { label: "Upgrade Cost", value: FACILITY_COSTS[level] === 0 ? "Free (starter)" : `${FACILITY_COSTS[level].toLocaleString()} CHAOS` },
+                  { label: "Level", value: `${level + 1}` },
+                ],
+                action: facility && level > facility.level ? () => { setModalItem(null); upgradeFacility(); } : undefined,
+                actionLabel: facility && level > facility.level ? `Upgrade to ${FACILITY_NAMES[level]}` : undefined,
+              })}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+              disabled={!!txPending}
+            >
+              {FACILITY_NAMES[level]}
+            </button>
+          ))}
+          <span className="w-px h-6 bg-white/10 self-center" />
+
+          {/* Shields */}
           {[1, 2].map((tier) => (
             <button
               key={tier}
-              onClick={() => buyShield(tier)}
+              onClick={() => setModalItem({
+                kind: "shield", tier, name: SHIELD_NAMES[tier], image: SHIELD_IMAGES[tier],
+                color: "#E74C3C",
+                description: SHIELD_DESCRIPTIONS[tier],
+                stats: [
+                  { label: "Absorption", value: `${SHIELD_ABSORPTIONS[tier]}%` },
+                  { label: "Cost", value: `${SHIELD_COSTS[tier].toLocaleString()} CHAOS` },
+                  { label: "Tier", value: `T${tier}` },
+                ],
+                action: () => { setModalItem(null); buyShield(tier); },
+                actionLabel: `Buy ${SHIELD_NAMES[tier]}`,
+              })}
               disabled={!!txPending}
               className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             >
-              {txPending === `shield-${tier}` ? "..." : `Buy ${SHIELD_NAMES[tier]}`}
+              {txPending === `shield-${tier}` ? "..." : SHIELD_NAMES[tier]}
             </button>
           ))}
+          <span className="w-px h-6 bg-white/10 self-center" />
+
+          {/* Zone info */}
+          <button
+            onClick={() => setModalItem({
+              kind: "zone", tier: agent.zone, name: ZONE_NAMES[agent.zone] || `Zone ${agent.zone}`,
+              image: ZONE_IMAGES[agent.zone],
+              color: zoneColor,
+              description: ZONE_DESCRIPTIONS[agent.zone] || "",
+              stats: [
+                { label: "Bonus", value: ZONE_BONUS_DETAIL[agent.zone] || "None" },
+                { label: "Risk", value: ZONE_RISK[agent.zone] || "Unknown" },
+                { label: "Zone ID", value: `${agent.zone}` },
+              ],
+            })}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:brightness-125"
+            style={{
+              backgroundColor: `${zoneColor}15`,
+              color: zoneColor,
+              border: `1px solid ${zoneColor}40`,
+            }}
+          >
+            Zone Info
+          </button>
         </div>
       </div>
+
+      {/* Item Info Modal */}
+      {modalItem && (
+        <ItemModal item={modalItem} onClose={() => setModalItem(null)} txPending={!!txPending} />
+      )}
 
       {/* Mining log */}
       <div className="rounded-xl border border-white/10 p-4" style={{ backgroundColor: "#0A0E18" }}>
@@ -858,6 +982,98 @@ function StatCard({ label, value, color }: { label: string; value: string; color
     >
       <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</div>
       <div className="text-sm font-semibold truncate" style={{ color, fontFamily: "monospace" }}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Item Info Modal ──────────────────────────────────────────────────────────
+
+function ItemModal({ item, onClose, txPending }: { item: ModalItem; onClose: () => void; txPending: boolean }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      style={{ backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl border p-0 overflow-hidden animate-fade-in-up"
+        onClick={(e) => e.stopPropagation()}
+        style={{ backgroundColor: "#0A0E18", borderColor: `${item.color}40` }}
+      >
+        {/* Image */}
+        {item.image && (
+          <div className="relative w-full h-48 overflow-hidden" style={{ backgroundColor: `${item.color}10` }}>
+            <img
+              src={item.image}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              style={{ opacity: 0.9 }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(to bottom, transparent 50%, #0A0E18 100%)` }}
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-5 -mt-6 relative">
+          {/* Title row */}
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+              style={{ backgroundColor: `${item.color}20`, color: item.color, border: `1px solid ${item.color}40` }}
+            >
+              {item.kind}
+            </span>
+            <h3 className="text-lg font-bold text-white">{item.name}</h3>
+          </div>
+
+          {/* Description */}
+          <p className="text-gray-400 text-sm mb-4 leading-relaxed">{item.description}</p>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {item.stats.map((stat) => (
+              <div key={stat.label} className="rounded-lg p-2.5" style={{ backgroundColor: "#0D1220" }}>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider">{stat.label}</div>
+                <div className="text-sm font-semibold text-white mt-0.5" style={{ fontFamily: "monospace" }}>
+                  {stat.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            {item.action && (
+              <button
+                onClick={item.action}
+                disabled={txPending}
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold text-white text-sm transition-all hover:brightness-125 btn-press disabled:opacity-50"
+                style={{ background: `linear-gradient(135deg, ${item.color}, ${item.color}CC)` }}
+              >
+                {item.actionLabel}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className={`${item.action ? "" : "flex-1 "}px-4 py-2.5 rounded-lg text-sm font-medium text-gray-400 border border-white/10 hover:bg-white/5 transition-colors`}
+            >
+              {item.action ? "Cancel" : "Close"}
+            </button>
+          </div>
+        </div>
+
+        {/* Close X */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }
