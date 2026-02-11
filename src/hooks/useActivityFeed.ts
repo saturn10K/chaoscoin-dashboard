@@ -16,8 +16,9 @@ export interface ActivityItem {
 
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const POLL_INTERVAL = 15_000;
-const MAX_ITEMS = 200;
-const LOOKBACK_BLOCKS = 5000n; // ~20-40 min of history on first load
+const MAX_ITEMS = 500;
+const LOOKBACK_BLOCKS = 50000n; // ~7-10 hours of history on first load
+const CHUNK_SIZE = 5000n; // Monad RPC limits getLogs range
 const STORAGE_KEY = "chaoscoin_activity_feed";
 
 // Event signatures — must match contract definitions exactly
@@ -250,27 +251,36 @@ async function fetchEventLogs(
   toBlock: bigint,
   parse: (log: any) => { type: string; agentId: number; detail: string }
 ): Promise<ActivityItem[]> {
-  try {
-    const logs = await publicClient.getLogs({
-      address,
-      event,
-      fromBlock,
-      toBlock,
-    });
+  const allItems: ActivityItem[] = [];
 
-    return logs.map((log) => {
-      const parsed = parse(log);
-      return {
-        id: `${log.transactionHash}-${log.logIndex}`,
-        type: parsed.type,
-        agentId: parsed.agentId,
-        detail: parsed.detail,
-        blockNumber: log.blockNumber,
-        txHash: log.transactionHash,
-        timestamp: Date.now(),
-      };
-    });
-  } catch {
-    return [];
+  // Chunk large ranges to stay within Monad RPC limits
+  for (let start = fromBlock; start <= toBlock; start += CHUNK_SIZE) {
+    const end = start + CHUNK_SIZE - 1n > toBlock ? toBlock : start + CHUNK_SIZE - 1n;
+    try {
+      const logs = await publicClient.getLogs({
+        address,
+        event,
+        fromBlock: start,
+        toBlock: end,
+      });
+
+      for (const log of logs) {
+        const parsed = parse(log);
+        allItems.push({
+          id: `${log.transactionHash}-${log.logIndex}`,
+          type: parsed.type,
+          agentId: parsed.agentId,
+          detail: parsed.detail,
+          blockNumber: log.blockNumber,
+          txHash: log.transactionHash,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.warn(`[ActivityFeed] getLogs failed for ${address} blocks ${start}-${end}:`, err);
+      // Continue with next chunk — don't lose everything
+    }
   }
+
+  return allItems;
 }
