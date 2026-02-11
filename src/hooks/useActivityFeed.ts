@@ -234,8 +234,8 @@ export function useActivityFeed() {
       }
 
       lastBlockRef.current = currentBlock;
-    } catch {
-      // Silent fail on log fetching — will retry next poll
+    } catch (err) {
+      console.warn("[ActivityFeed] fetchLogs error:", err);
     } finally {
       setLoading(false);
     }

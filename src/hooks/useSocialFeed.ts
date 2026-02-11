@@ -72,8 +72,12 @@ export function useSocialFeed(count = 30) {
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
+      } else {
+        console.warn(`[SocialFeed] fetch failed: ${res.status} ${res.statusText}`);
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.warn("[SocialFeed] fetch error:", err);
+    }
     setLoading(false);
   }, [count]);
 
