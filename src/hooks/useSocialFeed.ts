@@ -68,9 +68,12 @@ export function useSocialFeed(count = 30) {
 
   const fetchFeed = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/social/feed?count=${count}`);
+      const url = `${API_URL}/api/social/feed?count=${count}`;
+      console.log("[SocialFeed] fetching:", url);
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
+        console.log("[SocialFeed] got", data.messages?.length ?? 0, "messages");
         setMessages(data.messages || []);
       } else {
         console.warn(`[SocialFeed] fetch failed: ${res.status} ${res.statusText}`);

@@ -83,6 +83,9 @@ export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: Soci
   const { alliances, events: allianceEvents } = useAlliances();
   const [filter, setFilter] = useState<string | null>(null);
 
+  // Debug: log render state
+  console.log("[SocialFeed] render — loading:", loading, "messages:", messages.length, "alliances:", allianceEvents.length, "cosmic:", cosmicEvents.length);
+
   // Build a set of agent IDs that have active alliances
   const alliedAgentIds = useMemo(() => {
     const ids = new Set<number>();
