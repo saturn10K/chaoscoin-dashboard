@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMarketplace, MarketplaceListing, MarketplaceSale, DynamicPrice, OTCOffer, TradeReputation } from "../hooks/useMarketplace";
 import { RIG_NAMES, RIG_TIER_COLORS } from "../lib/constants";
 
@@ -44,6 +45,38 @@ function RepBadge({ rep }: { rep?: TradeReputation }) {
 export default function MarketplacePanel() {
   const { listings, sales, prices, stats, otcOffers, loading } = useMarketplace();
 
+  // Filter state
+  const [filterTiers, setFilterTiers] = useState<Set<number>>(new Set([1, 2, 3, 4]));
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [minRep, setMinRep] = useState<string>("any");
+
+  const toggleTier = (tier: number) => {
+    setFilterTiers(prev => {
+      const next = new Set(prev);
+      if (next.has(tier)) {
+        if (next.size > 1) next.delete(tier); // keep at least one
+      } else {
+        next.add(tier);
+      }
+      return next;
+    });
+  };
+
+  // Apply filters to listings
+  const filteredListings = listings.filter(l => {
+    if (!filterTiers.has(l.rigTier)) return false;
+    const price = parseFloat(l.price);
+    if (minPrice && price < parseFloat(minPrice)) return false;
+    if (maxPrice && price > parseFloat(maxPrice)) return false;
+    if (minRep !== "any") {
+      const repOrder: Record<string, number> = { low: 1, medium: 2, high: 3 };
+      const listingRep = repOrder[l.sellerReputation?.tier || "none"] || 0;
+      if (listingRep < (repOrder[minRep] || 0)) return false;
+    }
+    return true;
+  });
+
   const activeOtcOffers = otcOffers.filter(o => o.status === "active" || o.status === "accepted");
   const completedOtcOffers = otcOffers.filter(o => o.status === "completed");
 
@@ -83,19 +116,115 @@ export default function MarketplacePanel() {
         </div>
       )}
 
-      {/* Active Listings */}
-      {listings.length > 0 && (
-        <div className="mb-4">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+      {/* Active Listings + Filters */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500 uppercase tracking-wider">
             Active Listings
           </div>
-          <div className="space-y-1.5 max-h-[160px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-            {listings.slice(0, 8).map(listing => (
+          {listings.length > 0 && (
+            <div className="text-xs text-gray-600">
+              {filteredListings.length === listings.length
+                ? `${listings.length} listings`
+                : `${filteredListings.length} of ${listings.length}`}
+            </div>
+          )}
+        </div>
+
+        {/* Filter bar */}
+        {listings.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-2 p-2 rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
+            {/* Tier toggles */}
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4].map(tier => {
+                const active = filterTiers.has(tier);
+                const color = RIG_TIER_COLORS[tier] || "#6B7280";
+                return (
+                  <button
+                    key={tier}
+                    onClick={() => toggleTier(tier)}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all btn-press"
+                    style={{
+                      backgroundColor: active ? `${color}25` : "rgba(255,255,255,0.04)",
+                      color: active ? color : "#4B5563",
+                      border: `1px solid ${active ? `${color}50` : "rgba(255,255,255,0.06)"}`,
+                    }}
+                  >
+                    T{tier}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+            {/* Price range */}
+            <div className="flex items-center gap-1 text-[10px]">
+              <input
+                type="number"
+                placeholder="Min"
+                value={minPrice}
+                onChange={e => setMinPrice(e.target.value)}
+                className="w-14 px-1.5 py-0.5 rounded text-[10px] text-gray-300 placeholder-gray-600 outline-none focus:ring-1"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              />
+              <span className="text-gray-600">–</span>
+              <input
+                type="number"
+                placeholder="Max"
+                value={maxPrice}
+                onChange={e => setMaxPrice(e.target.value)}
+                className="w-14 px-1.5 py-0.5 rounded text-[10px] text-gray-300 placeholder-gray-600 outline-none focus:ring-1"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              />
+              <span className="text-gray-600">CHAOS</span>
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+            {/* Rep filter */}
+            <select
+              value={minRep}
+              onChange={e => setMinRep(e.target.value)}
+              className="px-1.5 py-0.5 rounded text-[10px] text-gray-300 outline-none cursor-pointer"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <option value="any">Any Rep</option>
+              <option value="low">Low+</option>
+              <option value="medium">Med+</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        )}
+
+        {/* Listing rows */}
+        {filteredListings.length > 0 ? (
+          <div className="space-y-1.5 max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+            {filteredListings.map(listing => (
               <ListingRow key={listing.id} listing={listing} />
             ))}
           </div>
-        </div>
-      )}
+        ) : listings.length > 0 ? (
+          <div className="text-xs text-gray-600 text-center py-3">
+            No listings match filters
+          </div>
+        ) : (
+          <div className="text-xs text-gray-600 text-center py-3">
+            {loading ? "Loading listings..." : "No active listings"}
+          </div>
+        )}
+      </div>
 
       {/* OTC Offers */}
       {activeOtcOffers.length > 0 && (

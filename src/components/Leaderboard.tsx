@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { ZONE_NAMES, PIONEER_BADGES } from "../lib/constants";
 import { useAlliances } from "../hooks/useSocialFeed";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
@@ -306,12 +307,14 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 {/* Agent ID + Badges */}
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className="text-sm text-gray-200"
+                    <Link
+                      href={`/agents/${agent.agentId}`}
+                      className="text-sm text-gray-200 hover:text-white transition-colors"
                       style={{ fontFamily: "monospace" }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       #{agent.agentId}
-                    </span>
+                    </Link>
                     {renderBadges(agent)}
                   </div>
                 </td>
@@ -393,12 +396,14 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 </span>
 
                 {/* Agent ID */}
-                <span
-                  className="text-sm text-gray-200 flex-shrink-0"
+                <Link
+                  href={`/agents/${agent.agentId}`}
+                  className="text-sm text-gray-200 flex-shrink-0 hover:text-white transition-colors"
                   style={{ fontFamily: "monospace" }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   #{agent.agentId}
-                </span>
+                </Link>
 
                 {/* Badges — flex-wrap so they don't overflow */}
                 <div className="flex items-center gap-1 flex-wrap min-w-0">

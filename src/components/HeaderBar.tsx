@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 function formatNumber(val: string): string {
@@ -19,6 +19,56 @@ interface HeaderBarProps {
   lastEventBlock: string;
   eventCooldown: number;
   currentPath?: string;
+  networkStatus?: { lastRpcSuccess: number; error: string | null };
+}
+
+function NetworkDot({ status }: { status?: { lastRpcSuccess: number; error: string | null } }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(i);
+  }, []);
+
+  if (!status) return null;
+
+  const age = status.lastRpcSuccess > 0 ? (now - status.lastRpcSuccess) / 1000 : Infinity;
+  const hasError = !!status.error;
+
+  let color = "#00E5A0"; // green
+  let label = "Live";
+  if (age > 60 || (hasError && age > 30)) {
+    color = "#FF6B35";
+    label = "Offline";
+  } else if (age > 15 || hasError) {
+    color = "#ECC94B";
+    label = "Delayed";
+  }
+
+  const tooltip = status.lastRpcSuccess > 0
+    ? `RPC: ${Math.floor(age)}s ago${hasError ? " | Error: " + status.error : ""}`
+    : "Connecting...";
+
+  return (
+    <div
+      className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0"
+      title={tooltip}
+    >
+      <span
+        className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+        style={{
+          backgroundColor: color,
+          boxShadow: `0 0 6px ${color}60`,
+          animation: label === "Live" ? "pulse 2s ease-in-out infinite" : "none",
+        }}
+      />
+      <span
+        className="text-[10px] sm:text-xs font-medium hidden sm:inline"
+        style={{ color }}
+      >
+        {label}
+      </span>
+    </div>
+  );
 }
 
 export default function HeaderBar({
@@ -28,6 +78,7 @@ export default function HeaderBar({
   lastEventBlock,
   eventCooldown,
   currentPath = "/",
+  networkStatus,
 }: HeaderBarProps) {
   const burnRef = useRef<HTMLSpanElement>(null);
   const prevBurnedRef = useRef<string>(totalBurned);
@@ -133,6 +184,9 @@ export default function HeaderBar({
 
         {/* Metrics — scrollable on mobile, normal on desktop */}
         <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm overflow-x-auto scrollbar-hide">
+          {/* Network Status */}
+          <NetworkDot status={networkStatus} />
+
           {/* Active Agents */}
           <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
             <span

@@ -46,6 +46,7 @@ export function useChainData() {
   const [error, setError] = useState<string | null>(null);
   const prevRef = useRef<ChainData | null>(null);
   const isMountedRef = useRef(true);
+  const lastSuccessRef = useRef<number>(0);
 
   const fetchData = useCallback(async () => {
     // Skip if addresses are zeros (not deployed)
@@ -176,6 +177,7 @@ export function useChainData() {
       prevRef.current = newData;
       setData(newData);
       setError(null);
+      lastSuccessRef.current = Date.now();
     } catch (err: any) {
       // Total failure — keep previous data visible
       console.error("[useChainData] fetch error:", err);
@@ -195,5 +197,5 @@ export function useChainData() {
     };
   }, [fetchData]);
 
-  return { data, loading, error, refetch: fetchData };
+  return { data, loading, error, refetch: fetchData, lastSuccessAt: lastSuccessRef.current };
 }

@@ -11,6 +11,7 @@ import Leaderboard from "../components/Leaderboard";
 import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
 import WelcomeGuide from "../components/WelcomeGuide";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://chaoscoin-production.up.railway.app";
 
@@ -66,7 +67,7 @@ const SocialFeed = dynamic(() => import("../components/SocialFeed"), { ssr: fals
 const StatusTicker = dynamic(() => import("../components/StatusTicker"), { ssr: false });
 
 export default function Dashboard() {
-  const { data, loading, error } = useChainData();
+  const { data, loading, error, lastSuccessAt } = useChainData();
   const { agents, currentBlock } = useAgents(data?.totalAgents ?? 0);
   const { events } = useCosmicEvents(data?.totalEvents ?? 0);
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
@@ -84,6 +85,7 @@ export default function Dashboard() {
           totalBurned={data?.totalBurned ?? "0"}
           lastEventBlock={data?.lastEventBlock ?? "0"}
           eventCooldown={data?.eventCooldown ?? 75000}
+          networkStatus={{ lastRpcSuccess: lastSuccessAt, error }}
         />
 
         {/* Status bar / Social ticker */}
@@ -111,35 +113,44 @@ export default function Dashboard() {
       <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ minHeight: "calc(100vh - 100px)" }}>
         {/* Left column: Zone Map + Leaderboard */}
         <div className="lg:col-span-7 flex flex-col gap-4">
-          <div className="animate-fade-in-up">
-            <ZoneMap
-              zoneCounts={data?.zoneCounts ?? [0, 0, 0, 0, 0, 0, 0, 0]}
-              totalAgents={data?.totalAgents ?? 0}
-              agents={agents}
-              onSelectAgent={setSelectedAgent}
-              pulsingZones={pulsingZones}
-            />
-          </div>
+          <ErrorBoundary label="Zone Map">
+            <div className="animate-fade-in-up">
+              <ZoneMap
+                zoneCounts={data?.zoneCounts ?? [0, 0, 0, 0, 0, 0, 0, 0]}
+                totalAgents={data?.totalAgents ?? 0}
+                agents={agents}
+                onSelectAgent={setSelectedAgent}
+                pulsingZones={pulsingZones}
+              />
+            </div>
+          </ErrorBoundary>
 
-          <div className="flex-1 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            <Leaderboard agents={agents} currentBlock={currentBlock} onSelectAgent={setSelectedAgent} />
-          </div>
+          <ErrorBoundary label="Leaderboard">
+            <div className="flex-1 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+              <Leaderboard agents={agents} currentBlock={currentBlock} onSelectAgent={setSelectedAgent} />
+            </div>
+          </ErrorBoundary>
         </div>
 
         {/* Right column */}
         <div className="lg:col-span-5 flex flex-col gap-4">
           {/* Social Feed — Agent trash talk & drama + cosmic events */}
-          <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
-            <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
-          </div>
+          <ErrorBoundary label="Social Feed">
+            <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+              <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
+            </div>
+          </ErrorBoundary>
 
           {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations + cosmic */}
-          <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-            <ActivityFeed cosmicEvents={events} currentBlock={currentBlock} />
-          </div>
+          <ErrorBoundary label="Activity Feed">
+            <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
+              <ActivityFeed cosmicEvents={events} currentBlock={currentBlock} />
+            </div>
+          </ErrorBoundary>
 
-          <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
-            <SupplyMetrics
+          <ErrorBoundary label="Supply Metrics">
+            <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+              <SupplyMetrics
               totalMinted={data?.totalMinted ?? "0"}
               totalBurned={data?.totalBurned ?? "0"}
               circulatingSupply={data?.circulatingSupply ?? "0"}
@@ -155,7 +166,8 @@ export default function Dashboard() {
                 sabotage: "0",
               }}
             />
-          </div>
+            </div>
+          </ErrorBoundary>
 
           {/* Live chain info */}
           {isLive && (

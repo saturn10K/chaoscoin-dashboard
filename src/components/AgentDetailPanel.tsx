@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useAgentDetails, RigInfo } from "../hooks/useAgentDetails";
 import { ZONE_NAMES, ZONE_COLORS, ZONE_IMAGES, RIG_NAMES, RIG_IMAGES, FACILITY_NAMES, FACILITY_IMAGES, SHIELD_NAMES, SHIELD_IMAGES, RIG_TIER_COLORS, PIONEER_BADGES } from "../lib/constants";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
@@ -256,6 +257,24 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
                 View on Monad Explorer
               </a>
             </Section>
+
+            {/* Full Profile Link */}
+            <Link
+              href={`/agents/${agentId}`}
+              onClick={onClose}
+              className="mt-2 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg text-xs font-medium transition-all hover:brightness-125"
+              style={{
+                backgroundColor: "#00E5A015",
+                color: "#00E5A0",
+                border: "1px solid #00E5A030",
+              }}
+            >
+              View full profile
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </Link>
           </div>
         )}
       </div>
