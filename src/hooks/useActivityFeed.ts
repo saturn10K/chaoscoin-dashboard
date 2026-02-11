@@ -17,7 +17,7 @@ export interface ActivityItem {
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const POLL_INTERVAL = 15_000;
 const MAX_ITEMS = 500;
-const LOOKBACK_BLOCKS = 50000n; // ~7-10 hours of history on first load
+const LOOKBACK_BLOCKS = 5000n; // ~20 min of history on first load (localStorage covers older)
 const CHUNK_SIZE = 5000n; // Monad RPC limits getLogs range
 const STORAGE_KEY = "chaoscoin_activity_feed";
 
@@ -207,7 +207,12 @@ export function useActivityFeed() {
         );
       }
 
-      const results = await Promise.all(logPromises);
+      // Fetch sequentially to avoid overwhelming Monad's 15 req/s RPC limit.
+      // Each fetchEventLogs already does sequential chunked getLogs internally.
+      const results: ActivityItem[][] = [];
+      for (const promise of logPromises) {
+        results.push(await promise);
+      }
       for (const batch of results) {
         for (const item of batch) {
           if (!seenTxRef.current.has(item.id)) {
