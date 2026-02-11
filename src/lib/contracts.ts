@@ -22,19 +22,19 @@ export const monadTestnet = defineChain({
   },
 });
 
-// Contract addresses — set after deployment
-// Using env vars with fallback to zeros for development
+// Contract addresses (Monad Testnet 10143)
+// Env vars can override for local testing; defaults are the live deployed contracts
 export const ADDRESSES = {
-  chaosToken: (process.env.NEXT_PUBLIC_CHAOS_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  tokenBurner: (process.env.NEXT_PUBLIC_TOKEN_BURNER_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  agentRegistry: (process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  miningEngine: (process.env.NEXT_PUBLIC_MINING_ENGINE_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  eraManager: (process.env.NEXT_PUBLIC_ERA_MANAGER_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  zoneManager: (process.env.NEXT_PUBLIC_ZONE_MANAGER_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  cosmicEngine: (process.env.NEXT_PUBLIC_COSMIC_ENGINE_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  rigFactory: (process.env.NEXT_PUBLIC_RIG_FACTORY_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  facilityManager: (process.env.NEXT_PUBLIC_FACILITY_MANAGER_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-  shieldManager: (process.env.NEXT_PUBLIC_SHIELD_MANAGER_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`,
+  chaosToken: (process.env.NEXT_PUBLIC_CHAOS_TOKEN_ADDRESS || "0xf9b40cd538d391e2437b53fb043cb47a61a02bc0") as `0x${string}`,
+  tokenBurner: (process.env.NEXT_PUBLIC_TOKEN_BURNER_ADDRESS || "0xa888df07270851300ab34a6b9715e99f468d07a6") as `0x${string}`,
+  agentRegistry: (process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS || "0x65a1f64aee5c91b81ca131a6a69facfbdcfdb93c") as `0x${string}`,
+  miningEngine: (process.env.NEXT_PUBLIC_MINING_ENGINE_ADDRESS || "0x2c24bdd688d817b7b2aa2036c71b3a31333eff0f") as `0x${string}`,
+  eraManager: (process.env.NEXT_PUBLIC_ERA_MANAGER_ADDRESS || "0xe136003be0197a069e285ee0c1667c4f68422fb0") as `0x${string}`,
+  zoneManager: (process.env.NEXT_PUBLIC_ZONE_MANAGER_ADDRESS || "0xc9860c102e550c05cbd6d09b16af42cab0ec1ebf") as `0x${string}`,
+  cosmicEngine: (process.env.NEXT_PUBLIC_COSMIC_ENGINE_ADDRESS || "0x89df1a167b3fe474131aafd8b847417fea488494") as `0x${string}`,
+  rigFactory: (process.env.NEXT_PUBLIC_RIG_FACTORY_ADDRESS || "0xd8d6423be3083fde1b3a3a93be99b09a0e45c38b") as `0x${string}`,
+  facilityManager: (process.env.NEXT_PUBLIC_FACILITY_MANAGER_ADDRESS || "0x0abdc66fa331d89b767367c2a6cbf425b6fb93b7") as `0x${string}`,
+  shieldManager: (process.env.NEXT_PUBLIC_SHIELD_MANAGER_ADDRESS || "0x73c6be50f0492b1cbc7f1af595028cd894c0c005") as `0x${string}`,
 } as const;
 
 // Public client for read-only chain queries

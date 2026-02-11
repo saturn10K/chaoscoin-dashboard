@@ -81,12 +81,13 @@ export function useActivityFeed() {
 
       const newItems: ActivityItem[] = [];
 
-      // Fetch logs from each contract in parallel
-      const logPromises: Promise<ActivityItem[]>[] = [];
+      // Build lazy fetchers — each is a function that returns a promise.
+      // We execute them sequentially to stay under Monad's 15 req/s RPC limit.
+      const logFetchers: (() => Promise<ActivityItem[]>)[] = [];
 
       // AgentRegistry logs
       if (ADDRESSES.agentRegistry !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.agentRegistry, EVENTS.registered, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const zoneName = ZONE_NAMES[Number(args.zone)] || `Zone ${args.zone}`;
@@ -97,7 +98,7 @@ export function useActivityFeed() {
             };
           })
         );
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.agentRegistry, EVENTS.heartbeat, fromBlock, currentBlock, (log) => ({
             type: "Heartbeat",
             agentId: Number((log as any).args.agentId),
@@ -108,7 +109,7 @@ export function useActivityFeed() {
 
       // MiningEngine logs — RewardsDistributed (auto-distributed on heartbeat)
       if (ADDRESSES.miningEngine !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.miningEngine, EVENTS.rewardsDistributed, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const amount = formatEther(args.amount);
@@ -123,7 +124,7 @@ export function useActivityFeed() {
 
       // RigFactory logs
       if (ADDRESSES.rigFactory !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.rigFactory, EVENTS.rigPurchased, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const rigName = RIG_NAMES[Number(args.tier)] || `T${args.tier} Rig`;
@@ -134,7 +135,7 @@ export function useActivityFeed() {
             };
           })
         );
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.rigFactory, EVENTS.rigEquipped, fromBlock, currentBlock, (log) => ({
             type: "Rig Equip",
             agentId: Number((log as any).args.agentId),
@@ -145,7 +146,7 @@ export function useActivityFeed() {
 
       // FacilityManager logs
       if (ADDRESSES.facilityManager !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.facilityManager, EVENTS.facilityUpgraded, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const lvl = Number(args.newLevel);
@@ -161,7 +162,7 @@ export function useActivityFeed() {
 
       // ShieldManager logs
       if (ADDRESSES.shieldManager !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.shieldManager, EVENTS.shieldPurchased, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const shieldName = SHIELD_NAMES[Number(args.tier)] || `T${args.tier} Shield`;
@@ -176,7 +177,7 @@ export function useActivityFeed() {
 
       // CosmicEngine logs
       if (ADDRESSES.cosmicEngine !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.cosmicEngine, EVENTS.eventTriggered, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const evtType = EVENT_TYPES[Number(args.eventType)];
@@ -193,7 +194,7 @@ export function useActivityFeed() {
 
       // ZoneManager migration logs
       if (ADDRESSES.zoneManager !== ZERO) {
-        logPromises.push(
+        logFetchers.push(() =>
           fetchEventLogs(ADDRESSES.zoneManager, EVENTS.migrated, fromBlock, currentBlock, (log) => {
             const args = (log as any).args;
             const fromName = ZONE_NAMES[Number(args.fromZone)] || `Zone ${args.fromZone}`;
@@ -207,11 +208,11 @@ export function useActivityFeed() {
         );
       }
 
-      // Fetch sequentially to avoid overwhelming Monad's 15 req/s RPC limit.
-      // Each fetchEventLogs already does sequential chunked getLogs internally.
+      // Execute fetchers sequentially — each starts only after the previous finishes.
+      // This keeps RPC load under Monad's 15 req/s limit.
       const results: ActivityItem[][] = [];
-      for (const promise of logPromises) {
-        results.push(await promise);
+      for (const fn of logFetchers) {
+        results.push(await fn());
       }
       for (const batch of results) {
         for (const item of batch) {
