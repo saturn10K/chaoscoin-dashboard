@@ -15,11 +15,12 @@ export interface ActivityItem {
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const POLL_INTERVAL = 15_000;
+const POLL_INTERVAL = 20_000; // 20s — give breathing room between polls
 const MAX_ITEMS = 500;
-const LOOKBACK_BLOCKS = 500n; // ~3-4 min of history on first load (localStorage covers older)
+const LOOKBACK_BLOCKS = 200n; // ~80s of history on first load (localStorage covers older)
 const CHUNK_SIZE = 100n; // Monad RPC limits eth_getLogs to 100 blocks per request
 const STORAGE_KEY = "chaoscoin_activity_feed";
+const RPC_DELAY_MS = 350; // delay between sequential getLogs to avoid 429
 
 // Event signatures — must match contract definitions exactly
 const EVENTS = {
@@ -34,6 +35,10 @@ const EVENTS = {
   eventTriggered: parseAbiItem("event EventTriggered(uint256 indexed eventId, uint8 eventType, uint8 severityTier, uint8 originZone, address triggeredBy)"),
   migrated: parseAbiItem("event AgentMigrated(uint256 indexed agentId, uint8 fromZone, uint8 toZone, uint256 cost, uint256 burned)"),
 };
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 function loadPersistedItems(): ActivityItem[] {
   try {
@@ -82,7 +87,7 @@ export function useActivityFeed() {
       const newItems: ActivityItem[] = [];
 
       // Build lazy fetchers — each is a function that returns a promise.
-      // We execute them sequentially to stay under Monad's 15 req/s RPC limit.
+      // We execute them sequentially with delays to stay under Monad's RPC rate limit.
       const logFetchers: (() => Promise<ActivityItem[]>)[] = [];
 
       // AgentRegistry logs
@@ -208,11 +213,13 @@ export function useActivityFeed() {
         );
       }
 
-      // Execute fetchers sequentially — each starts only after the previous finishes.
-      // This keeps RPC load under Monad's 15 req/s limit.
+      // Execute fetchers sequentially with delays between each.
+      // This keeps RPC load under Monad's rate limit.
       const results: ActivityItem[][] = [];
       for (const fn of logFetchers) {
         results.push(await fn());
+        // Small delay between event types to avoid 429
+        await sleep(RPC_DELAY_MS);
       }
       for (const batch of results) {
         for (const item of batch) {
@@ -242,9 +249,13 @@ export function useActivityFeed() {
   }, []);
 
   useEffect(() => {
-    fetchLogs();
+    // Delay initial fetch by 5s so useChainData / useAgents multicall finishes first
+    const startTimer = setTimeout(fetchLogs, 5000);
     const interval = setInterval(fetchLogs, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(startTimer);
+      clearInterval(interval);
+    };
   }, [fetchLogs]);
 
   return { items, loading };
@@ -285,6 +296,11 @@ async function fetchEventLogs(
     } catch (err) {
       console.warn(`[ActivityFeed] getLogs failed for ${address} blocks ${start}-${end}:`, err);
       // Continue with next chunk — don't lose everything
+    }
+
+    // Delay between chunks within the same event type
+    if (start + CHUNK_SIZE <= toBlock) {
+      await sleep(RPC_DELAY_MS);
     }
   }
 
