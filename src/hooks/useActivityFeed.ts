@@ -17,8 +17,8 @@ export interface ActivityItem {
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const POLL_INTERVAL = 15_000;
 const MAX_ITEMS = 500;
-const LOOKBACK_BLOCKS = 5000n; // ~20 min of history on first load (localStorage covers older)
-const CHUNK_SIZE = 5000n; // Monad RPC limits getLogs range
+const LOOKBACK_BLOCKS = 500n; // ~3-4 min of history on first load (localStorage covers older)
+const CHUNK_SIZE = 100n; // Monad RPC limits eth_getLogs to 100 blocks per request
 const STORAGE_KEY = "chaoscoin_activity_feed";
 
 // Event signatures — must match contract definitions exactly
