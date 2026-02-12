@@ -149,28 +149,24 @@ export default function StatusTicker({ statusText, statusColor }: StatusTickerPr
           height: 20px;
         }
         .ticker-track {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
           white-space: nowrap;
-          transition: opacity 0.35s ease, transform 0.35s ease;
+          height: 20px;
+          line-height: 20px;
+          transition: opacity 0.35s ease;
         }
         .ticker-phase-enter {
           opacity: 1;
-          transform: translateY(0);
         }
         .ticker-phase-scroll {
           opacity: 1;
-          transform: translateY(0);
         }
         .ticker-phase-exit {
           opacity: 0;
-          transform: translateY(-6px);
         }
         .ticker-inner {
           display: inline-flex;
           align-items: center;
+          height: 20px;
           gap: 6px;
           will-change: transform;
         }

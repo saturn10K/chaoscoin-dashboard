@@ -63,7 +63,10 @@ function useZonePulse(): Set<number> {
 // Dynamic imports with SSR disabled — these use Date.now() / real-time data
 const ActivityFeed = dynamic(() => import("../components/ActivityFeed"), { ssr: false });
 const SocialFeed = dynamic(() => import("../components/SocialFeed"), { ssr: false });
-const StatusTicker = dynamic(() => import("../components/StatusTicker"), { ssr: false });
+const StatusTicker = dynamic(() => import("../components/StatusTicker"), {
+  ssr: false,
+  loading: () => <span className="text-gray-500">Loading feed...</span>,
+});
 
 // Dynamic imports for overlay components (use Date.now for timers)
 const KillFeed = dynamic(() => import("../components/KillFeed"), { ssr: false });
