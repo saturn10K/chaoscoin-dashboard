@@ -8,7 +8,27 @@ import { useCosmicEvents } from "../hooks/useCosmicEvents";
 import { useSabotage } from "../hooks/useSabotage";
 import { useAlliances } from "../hooks/useSocialFeed";
 import HeaderBar from "../components/HeaderBar";
-import ZoneMap from "../components/ZoneMap";
+import ZoneMapSVG from "../components/ZoneMap";
+
+// 3D Zone Map — dynamic import to code-split Three.js bundle (~800KB)
+const ZoneMap3D = dynamic(() => import("../components/zone-map-3d"), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-lg border border-white/10 overflow-hidden" style={{ backgroundColor: "#0D1117" }}>
+      <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between" style={{ backgroundColor: "#06080D" }}>
+        <h2 className="text-sm font-semibold tracking-wide uppercase" style={{ color: "#7B61FF" }}>Zone Map</h2>
+        <span className="text-xs text-gray-500" style={{ fontFamily: "monospace" }}>Loading 3D...</span>
+      </div>
+      <div className="p-4 flex items-center justify-center" style={{ height: 380 }}>
+        <div className="text-gray-600 text-xs animate-pulse">Initializing 3D scene...</div>
+      </div>
+    </div>
+  ),
+});
+
+// Feature flag: set NEXT_PUBLIC_3D_MAP=1 in .env.local to enable 3D zone map
+const USE_3D_MAP = process.env.NEXT_PUBLIC_3D_MAP === "1";
+const ZoneMap = USE_3D_MAP ? ZoneMap3D : ZoneMapSVG;
 import Leaderboard from "../components/Leaderboard";
 import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
