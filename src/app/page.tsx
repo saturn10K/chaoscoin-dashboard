@@ -5,11 +5,14 @@ import dynamic from "next/dynamic";
 import { useChainData } from "../hooks/useChainData";
 import { useAgents } from "../hooks/useAgents";
 import { useCosmicEvents } from "../hooks/useCosmicEvents";
+import { useSabotage } from "../hooks/useSabotage";
+import { useAlliances } from "../hooks/useSocialFeed";
 import HeaderBar from "../components/HeaderBar";
 import ZoneMap from "../components/ZoneMap";
 import Leaderboard from "../components/Leaderboard";
 import SupplyMetrics from "../components/SupplyMetrics";
 import AgentDetailPanel from "../components/AgentDetailPanel";
+import MvpSpotlight from "../components/MvpSpotlight";
 import WelcomeGuide from "../components/WelcomeGuide";
 import ErrorBoundary from "../components/ErrorBoundary";
 
@@ -31,7 +34,6 @@ function useZonePulse(): Set<number> {
       const latestId = messages[0]?.id;
       if (!latestId || latestId === lastMessageIdRef.current) return;
 
-      // Find new messages since last check
       const newZones = new Set<number>();
       for (const msg of messages) {
         if (msg.id === lastMessageIdRef.current) break;
@@ -44,14 +46,12 @@ function useZonePulse(): Set<number> {
 
       if (newZones.size > 0) {
         setPulsingZones(newZones);
-        // Clear after 2 seconds (animation duration)
         setTimeout(() => setPulsingZones(new Set()), 2000);
       }
     } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
-    // Delay initial check to not compete with critical chain data fetch
     const startTimer = setTimeout(checkForNewMessages, 2000);
     const interval = setInterval(checkForNewMessages, 15_000);
     return () => { clearTimeout(startTimer); clearInterval(interval); };
@@ -61,15 +61,22 @@ function useZonePulse(): Set<number> {
 }
 
 // Dynamic imports with SSR disabled — these use Date.now() / real-time data
-// that causes hydration mismatches between server and client renders
 const ActivityFeed = dynamic(() => import("../components/ActivityFeed"), { ssr: false });
 const SocialFeed = dynamic(() => import("../components/SocialFeed"), { ssr: false });
 const StatusTicker = dynamic(() => import("../components/StatusTicker"), { ssr: false });
+
+// Dynamic imports for overlay components (use Date.now for timers)
+const KillFeed = dynamic(() => import("../components/KillFeed"), { ssr: false });
+const EventToasts = dynamic(() => import("../components/EventToasts"), { ssr: false });
+const CosmicFlashOverlay = dynamic(() => import("../components/CosmicFlashOverlay"), { ssr: false });
+const RivalryGraph = dynamic(() => import("../components/RivalryGraph"), { ssr: false });
 
 export default function Dashboard() {
   const { data, loading, error, lastSuccessAt } = useChainData();
   const { agents, currentBlock } = useAgents(data?.totalAgents ?? 0);
   const { events } = useCosmicEvents(data?.totalEvents ?? 0);
+  const { events: sabotageEvents, stats: sabotageStats } = useSabotage();
+  const { alliances, events: allianceEvents } = useAlliances();
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
   const pulsingZones = useZonePulse();
 
@@ -77,7 +84,17 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen" style={{ background: "#06080D url('/assets/dark_space.png') center/cover fixed" }}>
-      {/* Sticky header + ticker */}
+      {/* ─── Fixed overlay layers ─── */}
+      <KillFeed sabotageEvents={sabotageEvents} allianceEvents={allianceEvents} />
+      <EventToasts
+        sabotageEvents={sabotageEvents}
+        allianceEvents={allianceEvents}
+        cosmicEvents={events}
+        agents={agents}
+      />
+      <CosmicFlashOverlay cosmicEvents={events} />
+
+      {/* ─── Sticky header + ticker ─── */}
       <div className="sticky top-0 z-50">
         <HeaderBar
           era={data?.currentEra ?? 1}
@@ -109,9 +126,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main grid */}
+      {/* ─── Main grid ─── */}
       <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ minHeight: "calc(100vh - 100px)" }}>
-        {/* Left column: Zone Map + Leaderboard */}
+        {/* Left column: Zone Map + MVP Spotlight + Leaderboard */}
         <div className="lg:col-span-7 flex flex-col gap-4">
           <ErrorBoundary label="Zone Map">
             <div className="animate-fade-in-up">
@@ -121,7 +138,16 @@ export default function Dashboard() {
                 agents={agents}
                 onSelectAgent={setSelectedAgent}
                 pulsingZones={pulsingZones}
+                sabotageEvents={sabotageEvents}
+                cosmicEvents={events}
               />
+            </div>
+          </ErrorBoundary>
+
+          {/* MVP Spotlight — between ZoneMap and Leaderboard */}
+          <ErrorBoundary label="MVP Spotlight">
+            <div className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+              <MvpSpotlight agents={agents} sabotageStats={sabotageStats} />
             </div>
           </ErrorBoundary>
 
@@ -134,14 +160,21 @@ export default function Dashboard() {
 
         {/* Right column */}
         <div className="lg:col-span-5 flex flex-col gap-4">
-          {/* Social Feed — Agent trash talk & drama + cosmic events */}
+          {/* Social Feed */}
           <ErrorBoundary label="Social Feed">
             <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
               <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
             </div>
           </ErrorBoundary>
 
-          {/* Unified Activity Feed — on-chain + alliances + sabotage + negotiations + cosmic */}
+          {/* Rivalry Graph — replaces old chain info box */}
+          <ErrorBoundary label="Rivalry Network">
+            <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+              <RivalryGraph agents={agents} sabotageEvents={sabotageEvents} alliances={alliances} />
+            </div>
+          </ErrorBoundary>
+
+          {/* Activity Feed */}
           <ErrorBoundary label="Activity Feed">
             <div className="animate-fade-in-up" style={{ animationDelay: "120ms" }}>
               <ActivityFeed cosmicEvents={events} currentBlock={currentBlock} />
@@ -168,18 +201,6 @@ export default function Dashboard() {
             />
             </div>
           </ErrorBoundary>
-
-          {/* Live chain info */}
-          {isLive && (
-            <div className="rounded-lg p-3 text-xs glow-border animate-fade-in-up" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.05)", animationDelay: "240ms" }}>
-              <div className="text-gray-600 space-y-1" style={{ fontFamily: "monospace" }}>
-                <div>Hashrate: {data.totalHashrate} H/s</div>
-                <div>Emission: {data.emissionPerBlock} CHAOS/block</div>
-                <div>Events: {data.totalEvents} | Last: block {data.lastEventBlock}</div>
-                <div>Cooldown: {data.eventCooldown} blocks</div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

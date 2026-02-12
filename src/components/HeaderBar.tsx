@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import Link from "next/link";
 
 function formatNumber(val: string): string {
@@ -215,16 +216,63 @@ export default function HeaderBar({
             </span>
           </div>
 
-          {/* Event Cooldown */}
-          <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
+          {/* Cosmic Threat Bar */}
+          <div className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
             <img src="/assets/icons/cosmic_event_warning.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="text-gray-400 hidden sm:inline">Next</span>
-            <span
-              className="font-semibold"
-              style={{ color: "#7B61FF", fontFamily: "monospace" }}
-            >
-              {eventCooldown > 0 ? `${eventCooldown}b` : "READY"}
-            </span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400 text-[10px] hidden sm:inline">Cosmic</span>
+                <span
+                  className="font-semibold text-[10px]"
+                  style={{
+                    color: eventCooldown === 0 ? "#FF4444" : eventCooldown < 25000 ? "#ECC94B" : "#7B61FF",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {eventCooldown > 0 ? `${eventCooldown.toLocaleString()}b` : "⚠ IMMINENT"}
+                </span>
+              </div>
+              {/* Animated threat bar */}
+              <div
+                className="h-[3px] rounded-full overflow-hidden"
+                style={{ width: 48, backgroundColor: "#161B22" }}
+              >
+                <motion.div
+                  className="h-full rounded-full"
+                  animate={{
+                    width: `${Math.max(2, ((75000 - eventCooldown) / 75000) * 100)}%`,
+                    backgroundColor:
+                      eventCooldown === 0
+                        ? "#FF4444"
+                        : eventCooldown < 15000
+                        ? "#FF6B35"
+                        : eventCooldown < 37500
+                        ? "#ECC94B"
+                        : "#7B61FF",
+                  }}
+                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
+                  style={{
+                    boxShadow:
+                      eventCooldown === 0
+                        ? "0 0 8px #FF444480"
+                        : eventCooldown < 15000
+                        ? "0 0 6px #FF6B3560"
+                        : "none",
+                  }}
+                />
+              </div>
+            </div>
+            {eventCooldown === 0 && (
+              <motion.span
+                className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"
+                animate={{
+                  scale: [1, 1.5, 1],
+                  opacity: [1, 0.5, 1],
+                }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                style={{ boxShadow: "0 0 6px #FF4444" }}
+              />
+            )}
           </div>
         </div>
       </header>

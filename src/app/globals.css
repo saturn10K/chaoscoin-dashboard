@@ -271,6 +271,90 @@ body {
   display: inline-block; /* Needed for transform to work */
 }
 
+/* ─── Kill Feed — slide in from right ──────────────────────────────── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(60px); }
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-out-right {
+  animation: fadeOutRight 0.4s ease-in both;
+}
+
+/* ─── Toast Notifications ─────────────────────────────────────────── */
+@keyframes slideUpToast {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slideDownToast {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(10px); }
+}
+.animate-toast-in {
+  animation: slideUpToast 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-toast-out {
+  animation: slideDownToast 0.25s ease-in both;
+}
+@keyframes shrinkBar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ─── Cosmic Threat Bar ───────────────────────────────────────────── */
+@keyframes threatPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.animate-threat-pulse {
+  animation: threatPulse 1.5s ease-in-out infinite;
+}
+
+/* ─── Full-screen Cosmic Flash ────────────────────────────────────── */
+@keyframes cosmicFlash {
+  0% { opacity: 0; }
+  15% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+.animate-cosmic-flash {
+  animation: cosmicFlash 1.5s ease-out both;
+}
+
+/* ─── Leaderboard Rank Transition ─────────────────────────────────── */
+.rank-transition {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background-color 0.3s ease;
+}
+@keyframes overtakeFlash {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(0, 229, 160, 0.15); }
+  100% { background-color: transparent; }
+}
+.overtake-flash {
+  animation: overtakeFlash 1s ease-out;
+}
+
+/* ─── Zone Map Breathing ──────────────────────────────────────────── */
+@keyframes hexBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* ─── MVP Spotlight Glow ──────────────────────────────────────────── */
+@keyframes spotlightGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(123, 97, 255, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(123, 97, 255, 0.4), 0 0 30px rgba(123, 97, 255, 0.1); }
+}
+.mvp-glow {
+  animation: spotlightGlow 3s ease-in-out infinite;
+}
+
 /* ─── Zone Hex Flash — when agent posts a social message ───────────── */
 @keyframes hexFlash {
   0% {

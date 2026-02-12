@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { ZONE_NAMES, PIONEER_BADGES } from "../lib/constants";
 import { useAlliances } from "../hooks/useSocialFeed";
@@ -91,6 +92,8 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
   const [sortBy, setSortBy] = useState<SortKey>("hashrate");
   const [page, setPage] = useState(0);
   const { alliances } = useAlliances();
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const [overtakeAgents, setOvertakeAgents] = useState<Set<string>>(new Set());
 
   // Build alliance partner map for badge display
   const alliancePartners = useMemo(() => {
@@ -120,6 +123,27 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
     });
     return copy;
   }, [agents, sortBy]);
+
+  // Track rank changes for overtake animation
+  useEffect(() => {
+    const newRanks = new Map<string, number>();
+    const movedUp = new Set<string>();
+
+    sorted.forEach((agent, idx) => {
+      newRanks.set(agent.agentId, idx);
+      const prevRank = prevRanksRef.current.get(agent.agentId);
+      if (prevRank !== undefined && idx < prevRank) {
+        movedUp.add(agent.agentId);
+      }
+    });
+
+    if (movedUp.size > 0) {
+      setOvertakeAgents(movedUp);
+      setTimeout(() => setOvertakeAgents(new Set()), 1500);
+    }
+
+    prevRanksRef.current = newRanks;
+  }, [sorted]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / LB_PAGE_SIZE));
   const pageStart = page * LB_PAGE_SIZE;
@@ -288,11 +312,18 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
             )}
             {pagedAgents.map((agent, idx) => {
               const rank = pageStart + idx;
+              const isOvertaking = overtakeAgents.has(agent.agentId);
               return (
-              <tr
+              <motion.tr
                 key={agent.agentId}
-                className="hover:bg-white/[0.04] transition-colors cursor-pointer row-hover"
+                layout
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="cursor-pointer row-hover"
                 onClick={() => onSelectAgent?.(parseInt(agent.agentId))}
+                style={{
+                  backgroundColor: isOvertaking ? "rgba(0, 229, 160, 0.08)" : "transparent",
+                  transition: "background-color 0.5s ease",
+                }}
               >
                 {/* Rank */}
                 <td className="px-4 py-2.5">
@@ -361,7 +392,7 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 <td className="px-4 py-2.5 text-center">
                   {renderStatus(agent)}
                 </td>
-              </tr>
+              </motion.tr>
               );
             })}
           </tbody>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useAgentDetails, RigInfo } from "../hooks/useAgentDetails";
 import { ZONE_NAMES, ZONE_COLORS, ZONE_IMAGES, RIG_NAMES, RIG_IMAGES, FACILITY_NAMES, FACILITY_IMAGES, SHIELD_NAMES, SHIELD_IMAGES, RIG_TIER_COLORS, PIONEER_BADGES } from "../lib/constants";
@@ -27,12 +28,21 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <motion.div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
 
       {/* Panel */}
-      <div
-        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border animate-scale-in"
+      <motion.div
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl border"
         style={{ backgroundColor: "#0D1117", borderColor: "#7B61FF40", boxShadow: "0 0 60px rgba(123, 97, 255, 0.1), 0 0 120px rgba(123, 97, 255, 0.05)" }}
+        initial={{ opacity: 0, scale: 0.92, y: 20, filter: "blur(8px)" }}
+        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+        transition={{ type: "spring", stiffness: 400, damping: 28 }}
       >
         {/* Header */}
         <div
@@ -165,10 +175,12 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
+                      <motion.div
+                        className="h-full rounded-full"
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${(details.facility.condition / details.facility.maxCondition) * 100}%` }}
+                        transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.3 }}
                         style={{
-                          width: `${(details.facility.condition / details.facility.maxCondition) * 100}%`,
                           backgroundColor:
                             (details.facility.condition / details.facility.maxCondition) > 0.5
                               ? "#7B61FF"
@@ -277,7 +289,7 @@ export default function AgentDetailPanel({ agentId, onClose }: Props) {
             </Link>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -440,18 +452,21 @@ function RigGroupCard({ group }: { group: RigGroup }) {
         </div>
       </div>
 
-      {/* Average durability bar */}
+      {/* Animated durability bar */}
       <div className="mt-2">
         <div className="flex justify-between text-xs mb-0.5">
           <span className="text-gray-500">{tierRigs.length > 1 ? "Avg Durability" : "Durability"}</span>
           <span className="text-gray-400" style={{ fontFamily: "monospace" }}>{avgDurability.toFixed(0)}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
+          <motion.div
+            className="h-full rounded-full"
+            initial={{ width: "0%" }}
+            animate={{ width: `${avgDurability}%` }}
+            transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.2 }}
             style={{
-              width: `${avgDurability}%`,
               backgroundColor: avgDurability > 50 ? "#00E5A0" : avgDurability > 25 ? "#ECC94B" : "#FF6B35",
+              boxShadow: `0 0 6px ${avgDurability > 50 ? "#00E5A040" : avgDurability > 25 ? "#ECC94B40" : "#FF6B3540"}`,
             }}
           />
         </div>
