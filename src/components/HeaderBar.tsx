@@ -3,15 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-
-function formatNumber(val: string): string {
-  const num = parseFloat(val);
-  if (isNaN(num)) return "0.00";
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+import { useCountUp, formatAnimatedNumber } from "../hooks/useCountUp";
 
 interface HeaderBarProps {
   era: number;
@@ -83,6 +75,7 @@ export default function HeaderBar({
 }: HeaderBarProps) {
   const burnRef = useRef<HTMLSpanElement>(null);
   const prevBurnedRef = useRef<string>(totalBurned);
+  const animatedBurned = useCountUp(totalBurned, 1500);
 
   useEffect(() => {
     if (prevBurnedRef.current !== totalBurned && burnRef.current) {
@@ -212,7 +205,7 @@ export default function HeaderBar({
               className="font-semibold animate-number-flash"
               style={{ color: "#FF6B35", fontFamily: "monospace" }}
             >
-              {formatNumber(totalBurned)}
+              {formatAnimatedNumber(animatedBurned)}
             </span>
           </div>
 

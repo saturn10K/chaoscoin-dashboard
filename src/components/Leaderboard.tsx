@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { ZONE_NAMES, PIONEER_BADGES } from "../lib/constants";
 import { useAlliances } from "../hooks/useSocialFeed";
+import { useCountUp, formatAnimatedNumber } from "../hooks/useCountUp";
 import { HandHeartIcon } from "./icons";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
@@ -85,6 +86,31 @@ function rankColor(idx: number): string {
   if (idx === 1) return "#A0AEC0";
   if (idx === 2) return "#ED8936";
   return "#6B7280";
+}
+
+/** Animated number cell — each instance maintains its own counting animation */
+function AnimatedValue({ value, color, decimals = 2 }: { value: string; color?: string; decimals?: number }) {
+  const animated = useCountUp(value, 1500);
+  return (
+    <span style={{ color, fontFamily: "monospace" }}>
+      {formatAnimatedNumber(animated, decimals)}
+    </span>
+  );
+}
+
+/** Compact animated value for mobile layout */
+function AnimatedCompact({ value, color }: { value: string; color?: string }) {
+  const animated = useCountUp(value, 1500);
+  const num = animated;
+  let display: string;
+  if (num >= 1_000_000) display = `${(num / 1_000_000).toFixed(1)}M`;
+  else if (num >= 1_000) display = `${(num / 1_000).toFixed(1)}K`;
+  else display = num.toFixed(1);
+  return (
+    <span style={{ color, fontFamily: "monospace" }}>
+      {display}
+    </span>
+  );
 }
 
 const LB_PAGE_SIZE = 15;
@@ -353,32 +379,23 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
 
                 {/* Hashrate */}
                 <td className="px-4 py-2.5 text-right">
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: "#00E5A0", fontFamily: "monospace" }}
-                  >
-                    {formatNumber(agent.hashrate)}
+                  <span className="text-sm font-medium">
+                    <AnimatedValue value={agent.hashrate} color="#00E5A0" />
                   </span>
                 </td>
 
                 {/* Total Mined */}
                 <td className="px-4 py-2.5 text-right">
-                  <span
-                    className="text-sm text-gray-300"
-                    style={{ fontFamily: "monospace" }}
-                  >
-                    {formatNumber(agent.totalMined)}
+                  <span className="text-sm text-gray-300">
+                    <AnimatedValue value={agent.totalMined} color="#E5E7EB" />
                   </span>
                   <span className="text-xs text-gray-500 ml-1">CHAOS</span>
                 </td>
 
                 {/* Resilience */}
                 <td className="px-4 py-2.5 text-right">
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: "#60A5FA", fontFamily: "monospace" }}
-                  >
-                    {formatNumber(agent.cosmicResilience)}
+                  <span className="text-sm font-medium">
+                    <AnimatedValue value={agent.cosmicResilience} color="#60A5FA" />
                   </span>
                 </td>
 
@@ -453,25 +470,19 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
                 {/* Hashrate */}
                 <div className="flex items-center gap-1">
                   <span className="text-gray-500">H/s</span>
-                  <span style={{ color: "#00E5A0", fontFamily: "monospace" }}>
-                    {formatCompact(agent.hashrate)}
-                  </span>
+                  <AnimatedCompact value={agent.hashrate} color="#00E5A0" />
                 </div>
 
                 {/* Total Mined */}
                 <div className="flex items-center gap-1">
                   <span className="text-gray-500">Mined</span>
-                  <span className="text-gray-300" style={{ fontFamily: "monospace" }}>
-                    {formatCompact(agent.totalMined)}
-                  </span>
+                  <AnimatedCompact value={agent.totalMined} color="#D1D5DB" />
                 </div>
 
                 {/* Resilience */}
                 <div className="flex items-center gap-1">
                   <span className="text-gray-500">Res</span>
-                  <span style={{ color: "#60A5FA", fontFamily: "monospace" }}>
-                    {formatCompact(agent.cosmicResilience)}
-                  </span>
+                  <AnimatedCompact value={agent.cosmicResilience} color="#60A5FA" />
                 </div>
 
                 {/* Zone — truncated */}

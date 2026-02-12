@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useCountUp, formatAnimatedNumber } from "../../../hooks/useCountUp";
 import { useAgentDetails, RigInfo } from "../../../hooks/useAgentDetails";
 import { useActivityFeed } from "../../../hooks/useActivityFeed";
 import { useSocialFeed, useAlliances } from "../../../hooks/useSocialFeed";
@@ -67,6 +68,28 @@ function Metric({ label, value, color, mono }: { label: string; value: string; c
         style={{ color: color || "#E5E7EB", fontFamily: mono ? "monospace" : undefined }}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+/** Metric with counting animation for numeric values */
+function AnimatedMetric({ label, rawValue, suffix, color, decimals = 2 }: {
+  label: string;
+  rawValue: string;
+  suffix?: string;
+  color?: string;
+  decimals?: number;
+}) {
+  const animated = useCountUp(rawValue, 1500);
+  return (
+    <div className="rounded-md p-2.5 border border-white/5" style={{ backgroundColor: "#06080D" }}>
+      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+      <div
+        className="text-sm font-medium"
+        style={{ color: color || "#E5E7EB", fontFamily: "monospace" }}
+      >
+        {formatAnimatedNumber(animated, decimals)}{suffix ? ` ${suffix}` : ""}
       </div>
     </div>
   );
@@ -402,13 +425,13 @@ export default function AgentProfilePage() {
                 <div className="rounded-lg p-4 glow-border animate-fade-in-up" style={{ background: "#0D1117", border: "1px solid rgba(255,255,255,0.1)" }}>
                   <Section title="Mining">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <Metric label="Total Mined" value={`${fmt(details.totalMined)} CHAOS`} color="#00E5A0" />
-                      <Metric label="Pending" value={`${fmt(details.pendingRewards)} CHAOS`} color="#ECC94B" />
-                      <Metric label="Hashrate" value={`${fmt(details.hashrate, 0)} H/s`} color="#00E5A0" />
-                      <Metric label="Resilience" value={fmt(details.cosmicResilience, 0)} color="#60A5FA" />
+                      <AnimatedMetric label="Total Mined" rawValue={details.totalMined} suffix="CHAOS" color="#00E5A0" />
+                      <AnimatedMetric label="Pending" rawValue={details.pendingRewards} suffix="CHAOS" color="#ECC94B" />
+                      <AnimatedMetric label="Hashrate" rawValue={details.hashrate} suffix="H/s" color="#00E5A0" decimals={0} />
+                      <AnimatedMetric label="Resilience" rawValue={details.cosmicResilience} color="#60A5FA" decimals={0} />
                     </div>
                     <div className="grid grid-cols-2 gap-3 mt-3">
-                      <Metric label="Wallet Balance" value={`${fmt(details.walletBalance)} CHAOS`} color="#00E5A0" />
+                      <AnimatedMetric label="Wallet Balance" rawValue={details.walletBalance} suffix="CHAOS" color="#00E5A0" />
                       <Metric label="Zone" value={ZONE_NAMES[details.zone] || `Zone ${details.zone}`} />
                     </div>
                   </Section>
