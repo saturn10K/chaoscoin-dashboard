@@ -69,14 +69,14 @@ const StatusTicker = dynamic(() => import("../components/StatusTicker"), { ssr: 
 const KillFeed = dynamic(() => import("../components/KillFeed"), { ssr: false });
 const EventToasts = dynamic(() => import("../components/EventToasts"), { ssr: false });
 const CosmicFlashOverlay = dynamic(() => import("../components/CosmicFlashOverlay"), { ssr: false });
-const RivalryGraph = dynamic(() => import("../components/RivalryGraph"), { ssr: false });
+
 
 export default function Dashboard() {
   const { data, loading, error, lastSuccessAt } = useChainData();
   const { agents, currentBlock } = useAgents(data?.totalAgents ?? 0);
   const { events } = useCosmicEvents(data?.totalEvents ?? 0);
   const { events: sabotageEvents, stats: sabotageStats } = useSabotage();
-  const { alliances, events: allianceEvents } = useAlliances();
+  const { events: allianceEvents } = useAlliances();
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
   const pulsingZones = useZonePulse();
 
@@ -164,13 +164,6 @@ export default function Dashboard() {
           <ErrorBoundary label="Social Feed">
             <div className="animate-fade-in-up" style={{ animationDelay: "50ms" }}>
               <SocialFeed cosmicEvents={events} currentBlock={Number(currentBlock)} />
-            </div>
-          </ErrorBoundary>
-
-          {/* Rivalry Graph — replaces old chain info box */}
-          <ErrorBoundary label="Rivalry Network">
-            <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-              <RivalryGraph agents={agents} sabotageEvents={sabotageEvents} alliances={alliances} />
             </div>
           </ErrorBoundary>
 
