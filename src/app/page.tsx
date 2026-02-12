@@ -81,6 +81,7 @@ export default function Dashboard() {
   const { events: sabotageEvents, stats: sabotageStats } = useSabotage();
   const { events: allianceEvents } = useAlliances();
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
+  const [killFeedActive, setKillFeedActive] = useState(false);
   const pulsingZones = useZonePulse();
 
   const isLive = data !== null;
@@ -88,12 +89,17 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen" style={{ background: "#06080D url('/assets/dark_space.png') center/cover fixed" }}>
       {/* ─── Fixed overlay layers ─── */}
-      <KillFeed sabotageEvents={sabotageEvents} allianceEvents={allianceEvents} />
+      <KillFeed
+        sabotageEvents={sabotageEvents}
+        allianceEvents={allianceEvents}
+        onActiveChange={setKillFeedActive}
+      />
       <EventToasts
         sabotageEvents={sabotageEvents}
         allianceEvents={allianceEvents}
         cosmicEvents={events}
         agents={agents}
+        paused={killFeedActive}
       />
       <CosmicFlashOverlay cosmicEvents={events} />
 

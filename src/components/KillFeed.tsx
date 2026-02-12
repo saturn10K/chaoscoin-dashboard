@@ -29,9 +29,11 @@ const DISMISS_MS = 8000;
 interface KillFeedProps {
   sabotageEvents: SabotageEvent[];
   allianceEvents: AllianceEvent[];
+  onActiveChange?: (hasItems: boolean) => void;
+  paused?: boolean;
 }
 
-export default function KillFeed({ sabotageEvents, allianceEvents }: KillFeedProps) {
+export default function KillFeed({ sabotageEvents, allianceEvents, onActiveChange, paused }: KillFeedProps) {
   const [items, setItems] = useState<KillFeedItem[]>([]);
   const lastSabotageIdRef = useRef<string>("");
   const lastAllianceTimestampRef = useRef<number>(0);
@@ -101,10 +103,15 @@ export default function KillFeed({ sabotageEvents, allianceEvents }: KillFeedPro
     };
   }, [items]);
 
-  const visibleItems = items.slice(0, MAX_VISIBLE);
+  const visibleItems = paused ? [] : items.slice(0, MAX_VISIBLE);
+
+  // Notify parent of active state
+  useEffect(() => {
+    onActiveChange?.(items.length > 0);
+  }, [items.length, onActiveChange]);
 
   return (
-    <div className="fixed top-16 right-4 z-40 pointer-events-none flex flex-col gap-1.5 w-80">
+    <div className="fixed top-16 right-4 z-[60] pointer-events-none flex flex-col gap-1.5 w-80">
       <AnimatePresence mode="popLayout">
         {visibleItems.map((item) => {
           const config = ATTACK_CONFIG[item.type] || ATTACK_CONFIG.facility_raid;

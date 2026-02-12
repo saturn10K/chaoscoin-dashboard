@@ -24,6 +24,8 @@ interface EventToastsProps {
   allianceEvents: AllianceEvent[];
   cosmicEvents: CosmicEvent[];
   agents: AgentProfile[];
+  onActiveChange?: (hasItems: boolean) => void;
+  paused?: boolean;
 }
 
 export default function EventToasts({
@@ -31,6 +33,8 @@ export default function EventToasts({
   allianceEvents,
   cosmicEvents,
   agents,
+  onActiveChange,
+  paused,
 }: EventToastsProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lastSabotageIdRef = useRef<string>("");
@@ -154,10 +158,17 @@ export default function EventToasts({
     }
   }, [agents, addToast]);
 
+  // Notify parent of active state
+  useEffect(() => {
+    onActiveChange?.(toasts.length > 0);
+  }, [toasts.length, onActiveChange]);
+
+  const visibleToasts = paused ? [] : toasts;
+
   return (
-    <div className="fixed bottom-4 right-4 z-40 pointer-events-none flex flex-col-reverse gap-2 w-80">
+    <div className="fixed bottom-4 right-4 z-[60] pointer-events-none flex flex-col-reverse gap-2 w-80">
       <AnimatePresence mode="popLayout">
-        {toasts.map((toast) => {
+        {visibleToasts.map((toast) => {
           const elapsed = Date.now() - toast.createdAt;
           const progress = Math.max(0, 1 - elapsed / TOAST_DURATION);
           return (
