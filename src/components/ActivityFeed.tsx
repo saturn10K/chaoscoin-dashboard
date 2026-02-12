@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, ReactNode } from "react";
 import { useActivityFeed, ActivityItem } from "../hooks/useActivityFeed";
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
@@ -134,6 +134,15 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 
 const PAGE_SIZE = 25;
 
+function getItemId(item: UnifiedItem): string {
+  if (item.kind === "chain" && item.chainItem) return `chain-${item.chainItem.id}`;
+  if (item.kind === "sabotage" && item.sabotageEvent) return `sab-${item.sabotageEvent.id}`;
+  if (item.kind === "negotiation" && item.negotiation) return `neg-${item.negotiation.id}`;
+  if (item.kind === "cosmic" && item.cosmicEvent) return `cosmic-${item.cosmicEvent.eventId}`;
+  if (item.kind === "alliance_event" && item.allianceEvent) return `ae-${item.allianceEvent.allianceId}-${item.sortKey}`;
+  return `${item.kind}-${item.sortKey}`;
+}
+
 interface ActivityFeedProps {
   cosmicEvents?: CosmicEvent[];
   currentBlock?: bigint;
@@ -146,6 +155,8 @@ export default function ActivityFeed({ cosmicEvents = [], currentBlock = 0n }: A
   const [filter, setFilter] = useState<FilterTab>("all");
   const [page, setPage] = useState(0);
   const [detailModal, setDetailModal] = useState<{ type: string; data: SabotageEvent | NegotiationEvent | AllianceEvent } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevTopItemRef = useRef<string>("");
 
   // Merge everything into one timeline
   const unifiedItems = useMemo(() => {
@@ -199,6 +210,16 @@ export default function ActivityFeed({ cosmicEvents = [], currentBlock = 0n }: A
 
   // Reset page when filter changes
   useEffect(() => { setPage(0); }, [filter]);
+
+  // Auto-scroll to top when new items arrive (only on first page)
+  useEffect(() => {
+    if (unifiedItems.length === 0 || page !== 0) return;
+    const topId = getItemId(unifiedItems[0]);
+    if (prevTopItemRef.current && prevTopItemRef.current !== topId && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    prevTopItemRef.current = topId;
+  }, [unifiedItems, page]);
 
   const activeAlliances = alliances.filter((a) => a.active);
   const loading = chainLoading && chainItems.length === 0;
@@ -273,7 +294,7 @@ export default function ActivityFeed({ cosmicEvents = [], currentBlock = 0n }: A
       )}
 
       {/* Unified timeline */}
-      <div className="overflow-y-auto" style={{ maxHeight: 420 }}>
+      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 420 }}>
         {loading ? (
           <div className="px-4 py-6 text-center text-gray-500 text-xs">
             Scanning for activity...
