@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ReactNode } from "react";
 import { useActivityFeed, ActivityItem } from "../hooks/useActivityFeed";
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
 import { CosmicEvent } from "../hooks/useCosmicEvents";
 import { ZONE_NAMES, ZONE_COLORS, EVENT_TYPES, EVENT_ICONS, TIER_COLORS } from "../lib/constants";
+import { HandHeartIcon, LikeIcon, ChartLineIcon, SkullEmojiIcon, HeartIcon, HomeIcon, GearIcon, MagnifierIcon, ShieldCheckIcon, TargetIcon, RocketIcon, WalletIcon, SatelliteDishIcon, FileDescriptionIcon, FlameIcon } from "./icons";
 
 const MONAD_EXPLORER = "https://testnet.monadexplorer.com/tx/";
 
@@ -39,12 +40,12 @@ const TYPE_ICONS: Record<string, string> = {
   Migrate: "/assets/icons/zone_icon.png",
 };
 
-const ALLIANCE_EVENT_ICONS: Record<string, string> = {
-  formed: "🤝",
-  strengthened: "💪",
-  weakened: "📉",
-  betrayed: "🗡️",
-  dissolved: "💔",
+const ALLIANCE_EVENT_ICONS: Record<string, ReactNode> = {
+  formed: <HandHeartIcon size={14} />,
+  strengthened: <LikeIcon size={14} />,
+  weakened: <ChartLineIcon size={14} />,
+  betrayed: <SkullEmojiIcon size={14} />,
+  dissolved: <HeartIcon size={14} />,
 };
 const ALLIANCE_EVENT_COLORS: Record<string, string> = {
   formed: "#00E5A0",
@@ -54,10 +55,10 @@ const ALLIANCE_EVENT_COLORS: Record<string, string> = {
   dissolved: "#6C757D",
 };
 
-const ATTACK_ICONS: Record<string, string> = {
-  facility_raid: "🏚️",
-  rig_jam: "⚙️",
-  intel_gathering: "🔍",
+const ATTACK_ICONS: Record<string, ReactNode> = {
+  facility_raid: <HomeIcon size={14} />,
+  rig_jam: <GearIcon size={14} />,
+  intel_gathering: <MagnifierIcon size={14} />,
 };
 const ATTACK_LABELS: Record<string, string> = {
   facility_raid: "Facility Raid",
@@ -70,15 +71,15 @@ const ATTACK_COLORS: Record<string, string> = {
   intel_gathering: "#ECC94B",
 };
 
-const DEAL_ICONS: Record<string, string> = {
-  rig_trade: "🔧",
-  protection_pact: "🛡️",
-  coordinated_attack: "⚔️",
-  zone_migration: "🚀",
-  revenue_share: "💰",
-  information_exchange: "📡",
-  alliance_proposal: "🤝",
-  betrayal_conspiracy: "🗡️",
+const DEAL_ICONS: Record<string, ReactNode> = {
+  rig_trade: <GearIcon size={14} />,
+  protection_pact: <ShieldCheckIcon size={14} />,
+  coordinated_attack: <TargetIcon size={14} />,
+  zone_migration: <RocketIcon size={14} />,
+  revenue_share: <WalletIcon size={14} />,
+  information_exchange: <SatelliteDishIcon size={14} />,
+  alliance_proposal: <HandHeartIcon size={14} />,
+  betrayal_conspiracy: <SkullEmojiIcon size={14} />,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -398,7 +399,7 @@ function ChainRow({ item, currentBlock }: { item: ActivityItem; currentBlock: bi
 // ── Alliance event row ───────────────────────────────────────────────
 function AllianceEventRow({ event }: { event: AllianceEvent }) {
   const color = ALLIANCE_EVENT_COLORS[event.type] || "#7B61FF";
-  const icon = ALLIANCE_EVENT_ICONS[event.type] || "📋";
+  const icon = ALLIANCE_EVENT_ICONS[event.type] || <FileDescriptionIcon size={14} />;
   const timeAgo = formatTimestampAgo(event.timestamp);
   const label = event.type === "betrayed" ? "Betrayal" : event.type === "dissolved" ? "Dissolved" : "Alliance";
 
@@ -427,7 +428,7 @@ function AllianceEventRow({ event }: { event: AllianceEvent }) {
 // ── Sabotage row ─────────────────────────────────────────────────────
 function SabotageRow({ event, onClick }: { event: SabotageEvent; onClick?: () => void }) {
   const color = ATTACK_COLORS[event.type] || "#FF4444";
-  const icon = ATTACK_ICONS[event.type] || "💥";
+  const icon = ATTACK_ICONS[event.type] || <FlameIcon size={14} />;
   const label = ATTACK_LABELS[event.type] || "Attack";
   const timeAgo = formatTimestampAgo(event.timestamp);
   const zoneName = ZONE_NAMES[event.zone] || `Zone ${event.zone}`;
@@ -447,10 +448,10 @@ function SabotageRow({ event, onClick }: { event: SabotageEvent; onClick?: () =>
           <span className="text-gray-300" style={{ fontFamily: "monospace" }}>#{event.targetAgentId}</span>
           <span className="text-gray-500 ml-1.5">
             {event.damage > 0 && <span className="text-red-400">-{event.damage}%</span>}
-            {event.shieldReduction > 0 && <span className="text-blue-400 ml-1">🛡️-{event.shieldReduction}%</span>}
+            {event.shieldReduction > 0 && <span className="text-blue-400 ml-1">Shield -{event.shieldReduction}%</span>}
           </span>
           <span className="text-orange-400 ml-1.5" style={{ fontFamily: "monospace" }}>
-            🔥{formatChaos(event.burned)}
+            <FlameIcon size={12} />{formatChaos(event.burned)}
           </span>
         </div>
         {event.narrative && (
@@ -471,7 +472,7 @@ function SabotageRow({ event, onClick }: { event: SabotageEvent; onClick?: () =>
 
 // ── Negotiation row ──────────────────────────────────────────────────
 function NegotiationRow({ negotiation, onClick }: { negotiation: NegotiationEvent; onClick?: () => void }) {
-  const icon = DEAL_ICONS[negotiation.type] || "📋";
+  const icon = DEAL_ICONS[negotiation.type] || <FileDescriptionIcon size={14} />;
   const outcomeColor =
     negotiation.outcome === "accepted" ? "#00E5A0" :
     negotiation.outcome === "rejected" ? "#FF4444" : "#6B7280";
@@ -583,7 +584,7 @@ function CosmicEventRow({ event, currentBlock }: { event: CosmicEvent; currentBl
 }
 
 // ── Shared type badge ────────────────────────────────────────────────
-function TypeBadge({ color, icon, emoji, label }: { color: string; icon?: string; emoji?: string; label: string }) {
+function TypeBadge({ color, icon, emoji, label }: { color: string; icon?: string; emoji?: ReactNode; label: string }) {
   return (
     <span
       className="flex-shrink-0 inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium px-1 sm:px-1.5 py-0.5 rounded mt-0.5"
@@ -632,7 +633,7 @@ function EventDetailModal({ type, data, onClose }: { type: string; data: Sabotag
         <div className="p-4 space-y-3">
           {isSabotage && (() => {
             const sab = data as SabotageEvent;
-            const icon = ATTACK_ICONS[sab.type] || "💥";
+            const icon = ATTACK_ICONS[sab.type] || <FlameIcon size={22} />;
             const label = ATTACK_LABELS[sab.type] || "Attack";
             const color = ATTACK_COLORS[sab.type] || "#FF4444";
             const zoneName = ZONE_NAMES[sab.zone] || `Zone ${sab.zone}`;
@@ -678,13 +679,13 @@ function EventDetailModal({ type, data, onClose }: { type: string; data: Sabotag
                   </div>
                   <div className="rounded-md p-2 text-center" style={{ backgroundColor: "#06080D" }}>
                     <div className="text-[10px] text-gray-500">Burned</div>
-                    <div className="text-sm font-bold text-orange-400" style={{ fontFamily: "monospace" }}>🔥 {formatChaos(sab.burned)}</div>
+                    <div className="text-sm font-bold text-orange-400 flex items-center justify-center gap-1" style={{ fontFamily: "monospace" }}><FlameIcon size={14} /> {formatChaos(sab.burned)}</div>
                   </div>
                 </div>
 
                 {sab.shieldReduction > 0 && (
                   <div className="text-xs text-blue-400 flex items-center gap-1">
-                    🛡️ Shield absorbed {sab.shieldReduction}% of damage
+                    <ShieldCheckIcon size={14} /> Shield absorbed {sab.shieldReduction}% of damage
                   </div>
                 )}
 
@@ -703,7 +704,7 @@ function EventDetailModal({ type, data, onClose }: { type: string; data: Sabotag
 
           {isNegotiation && (() => {
             const neg = data as NegotiationEvent;
-            const icon = DEAL_ICONS[neg.type] || "📋";
+            const icon = DEAL_ICONS[neg.type] || <FileDescriptionIcon size={22} />;
             const outcomeColor = neg.outcome === "accepted" ? "#00E5A0" : neg.outcome === "rejected" ? "#FF4444" : "#6B7280";
             return (
               <>
@@ -767,7 +768,7 @@ function AllianceChip({ alliance }: { alliance: Alliance }) {
       className="flex-shrink-0 flex items-center gap-2 rounded-md px-2 py-1.5 card-hover"
       style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
     >
-      <span className="text-xs">🤝</span>
+      <span className="text-xs"><HandHeartIcon size={12} /></span>
       <div className="flex flex-col">
         <span className="text-[10px] font-medium text-gray-300 whitespace-nowrap leading-tight">
           {alliance.name}

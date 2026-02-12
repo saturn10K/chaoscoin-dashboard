@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { ZONE_NAMES, PIONEER_BADGES } from "../lib/constants";
 import { useAlliances } from "../hooks/useSocialFeed";
+import { HandHeartIcon } from "./icons";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
 
 function formatNumber(val: string): string {
@@ -190,7 +191,7 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
               border: "1px solid rgba(0,229,160,0.25)",
             }}
           >
-            🤝
+            <HandHeartIcon size={12} />
           </span>
         </BadgeTooltip>
       )}

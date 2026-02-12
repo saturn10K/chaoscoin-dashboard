@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAccount, useWalletClient } from "wagmi";
+import { RefreshIcon } from "./icons";
 import { formatEther, parseEther } from "viem";
 import { publicClient, monadTestnet, ADDRESSES, CHAOS_TOKEN_WRITE_ABI } from "../lib/contracts";
 
@@ -196,7 +197,7 @@ export default function TradePanel() {
     return (
       <div className="rounded-xl border border-white/10 p-6 sm:p-8" style={{ backgroundColor: "#0A0E18" }}>
         <div className="text-center space-y-4">
-          <div className="text-3xl">🔄</div>
+          <div className="flex justify-center"><RefreshIcon size={36} /></div>
           <h2 className="text-lg font-bold text-white">ChaosSwap Bridge</h2>
           <p className="text-gray-400 text-sm max-w-md mx-auto">
             Swap between in-game pCHAOS (210B supply) and nad.fun $CHAOS (1B supply) at a fixed 210:1 rate.

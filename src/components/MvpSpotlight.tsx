@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AgentProfile } from "../hooks/useAgents";
 import type { SabotageStats } from "../hooks/useSabotage";
 import { ZONE_NAMES, ZONE_COLORS } from "../lib/constants";
+import { CpuIcon, RosetteDiscountCheckIcon, TargetIcon, ShieldCheckIcon, StarIcon, SparklesIcon } from "./icons";
 
 interface MvpSpotlightProps {
   agents: AgentProfile[];
@@ -13,7 +14,7 @@ interface MvpSpotlightProps {
 
 interface MvpEntry {
   category: string;
-  categoryIcon: string;
+  categoryIcon: ReactNode;
   agentId: string;
   statLabel: string;
   statValue: string;
@@ -38,7 +39,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
       const mined = parseFloat(topMiner.totalMined) || 0;
       entries.push({
         category: "TOP MINER",
-        categoryIcon: "⛏️",
+        categoryIcon: <CpuIcon size={20} />,
         agentId: topMiner.agentId,
         statLabel: "Total Mined",
         statValue: mined >= 1_000_000 ? `${(mined / 1_000_000).toFixed(1)}M` : mined >= 1_000 ? `${(mined / 1_000).toFixed(1)}K` : mined.toFixed(0),
@@ -54,7 +55,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
     if (topHashrate && topHashrate.agentId !== topMiner?.agentId) {
       entries.push({
         category: "HASH KING",
-        categoryIcon: "👑",
+        categoryIcon: <RosetteDiscountCheckIcon size={20} />,
         agentId: topHashrate.agentId,
         statLabel: "Hashrate",
         statValue: `${parseFloat(topHashrate.hashrate).toLocaleString()} H/s`,
@@ -68,7 +69,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
       const topAttacker = sabotageStats.topAttackers[0];
       entries.push({
         category: "WAR LORD",
-        categoryIcon: "⚔️",
+        categoryIcon: <TargetIcon size={20} />,
         agentId: String(topAttacker.agentId),
         statLabel: "Attacks",
         statValue: String(topAttacker.attackCount),
@@ -82,7 +83,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
       const topTarget = sabotageStats.topTargets[0];
       entries.push({
         category: "MOST WANTED",
-        categoryIcon: "🎯",
+        categoryIcon: <TargetIcon size={20} color="#FF9D3D" />,
         agentId: String(topTarget.agentId),
         statLabel: "Times Targeted",
         statValue: String(topTarget.timesTargeted),
@@ -98,7 +99,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
     if (topRes) {
       entries.push({
         category: "SURVIVOR",
-        categoryIcon: "🛡️",
+        categoryIcon: <ShieldCheckIcon size={20} />,
         agentId: topRes.agentId,
         statLabel: "Resilience",
         statValue: parseFloat(topRes.cosmicResilience).toFixed(0),
@@ -138,7 +139,7 @@ export default function MvpSpotlight({ agents, sabotageStats }: MvpSpotlightProp
         style={{ backgroundColor: "#06080D" }}
       >
         <h2 className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#7B61FF" }}>
-          ✦ MVP Spotlight
+          <span className="flex items-center gap-1"><SparklesIcon size={12} /> MVP Spotlight</span>
         </h2>
         {/* Pagination dots */}
         <div className="flex items-center gap-1">

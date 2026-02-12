@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, ReactNode } from "react";
 import { useSocialFeed, useAlliances, SocialMessage, AllianceEvent, Alliance } from "../hooks/useSocialFeed";
 import { ZONE_NAMES, ZONE_COLORS, EVENT_TYPES, EVENT_ICONS, TIER_COLORS } from "../lib/constants";
 import { CosmicEvent } from "../hooks/useCosmicEvents";
 import BadgeTooltip, { BADGE_INFO } from "./BadgeTooltip";
+import { HandHeartIcon, LikeIcon, ChartLineIcon, SkullEmojiIcon, HeartIcon, MessageCircleIcon } from "./icons";
 
 const TYPE_COLORS: Record<string, string> = {
   taunt: "#FF6B6B",
@@ -26,22 +27,22 @@ const TYPE_COLORS: Record<string, string> = {
   reply: "#4A90D9",
 };
 
-const MOOD_INDICATORS: Record<string, string> = {
-  enraged: "\u{1F534}",
-  euphoric: "\u{1F7E2}",
-  paranoid: "\u{1F7E3}",
-  smug: "\u{1F7E1}",
-  desperate: "\u{1F7E0}",
-  vengeful: "\u{1F534}",
-  manic: "\u26A1",
+const MOOD_INDICATORS: Record<string, ReactNode> = {
+  enraged: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#EF4444" }} />,
+  euphoric: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#22C55E" }} />,
+  paranoid: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#A855F7" }} />,
+  smug: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#EAB308" }} />,
+  desperate: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#F97316" }} />,
+  vengeful: <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#EF4444" }} />,
+  manic: <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: "#FBBF24" }} />,
 };
 
-const ALLIANCE_EVENT_CONFIG: Record<string, { color: string; icon: string; bg: string }> = {
-  formed: { color: "#00E5A0", icon: "\u{1F91D}", bg: "rgba(0,229,160,0.06)" },
-  strengthened: { color: "#48BB78", icon: "\u{1F4AA}", bg: "rgba(72,187,120,0.06)" },
-  weakened: { color: "#ECC94B", icon: "\u{1F4C9}", bg: "rgba(236,201,75,0.06)" },
-  betrayed: { color: "#FF4444", icon: "\u{1F5E1}\uFE0F", bg: "rgba(255,68,68,0.08)" },
-  dissolved: { color: "#6C757D", icon: "\u{1F494}", bg: "rgba(108,117,125,0.06)" },
+const ALLIANCE_EVENT_CONFIG: Record<string, { color: string; icon: ReactNode; bg: string }> = {
+  formed: { color: "#00E5A0", icon: <HandHeartIcon size={14} />, bg: "rgba(0,229,160,0.06)" },
+  strengthened: { color: "#48BB78", icon: <LikeIcon size={14} />, bg: "rgba(72,187,120,0.06)" },
+  weakened: { color: "#ECC94B", icon: <ChartLineIcon size={14} />, bg: "rgba(236,201,75,0.06)" },
+  betrayed: { color: "#FF4444", icon: <SkullEmojiIcon size={14} />, bg: "rgba(255,68,68,0.08)" },
+  dissolved: { color: "#6C757D", icon: <HeartIcon size={14} />, bg: "rgba(108,117,125,0.06)" },
 };
 
 function timeAgo(timestamp: number): string {
@@ -189,7 +190,7 @@ export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: Soci
           className="text-sm font-semibold uppercase tracking-wider"
           style={{ color: "#7B61FF" }}
         >
-          Social Feed 💬
+          <>Social Feed <MessageCircleIcon size={14} className="inline" /></>
         </h2>
         <div className="flex gap-1 flex-wrap">
           {[null, "taunt", "boast", "shitpost", "cosmic", "alliance", "betrayal_announce"].map(f => (
@@ -412,7 +413,7 @@ function MessageBubble({
   alliancePartners: Map<number, number[]>;
 }) {
   const typeColor = TYPE_COLORS[message.type] || "#7B61FF";
-  const moodIndicator = MOOD_INDICATORS[message.mood] || "";
+  const moodIndicator = MOOD_INDICATORS[message.mood] || null;
   const zoneName = ZONE_NAMES[message.zone] || `Zone ${message.zone}`;
   const zoneColor = ZONE_COLORS[message.zone] || "#7F8C8D";
   const hasAlliance = alliedAgentIds.has(message.agentId);
@@ -457,7 +458,7 @@ function MessageBubble({
                     fontSize: 10,
                   }}
                 >
-                  🤝
+                  <HandHeartIcon size={12} />
                 </span>
               </BadgeTooltip>
             )}

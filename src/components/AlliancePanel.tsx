@@ -1,6 +1,8 @@
 "use client";
 
 import { useAlliances, Alliance, AllianceEvent } from "../hooks/useSocialFeed";
+import { ReactNode } from "react";
+import { HandHeartIcon, LikeIcon, ChartLineIcon, SkullEmojiIcon, HeartIcon, TargetIcon, FileDescriptionIcon } from "./icons";
 
 const EVENT_COLORS: Record<string, string> = {
   formed: "#00E5A0",
@@ -10,12 +12,12 @@ const EVENT_COLORS: Record<string, string> = {
   dissolved: "#6C757D",
 };
 
-const EVENT_ICONS: Record<string, string> = {
-  formed: "🤝",
-  strengthened: "💪",
-  weakened: "📉",
-  betrayed: "🗡️",
-  dissolved: "💔",
+const EVENT_ICONS: Record<string, ReactNode> = {
+  formed: <HandHeartIcon size={14} />,
+  strengthened: <LikeIcon size={14} />,
+  weakened: <ChartLineIcon size={14} />,
+  betrayed: <SkullEmojiIcon size={14} />,
+  dissolved: <HeartIcon size={14} />,
 };
 
 export default function AlliancePanel() {
@@ -30,7 +32,7 @@ export default function AlliancePanel() {
         className="text-sm font-semibold mb-3 uppercase tracking-wider"
         style={{ color: "#7B61FF" }}
       >
-        Alliances & Betrayals ⚔️
+        <>Alliances & Betrayals <TargetIcon size={14} className="inline" /></>
       </h2>
 
       {/* Stats bar */}
@@ -86,7 +88,7 @@ function AllianceRow({ alliance }: { alliance: Alliance }) {
       style={{ background: "rgba(255,255,255,0.03)" }}
     >
       <div className="flex items-center gap-2">
-        <span className="text-sm">🤝</span>
+        <HandHeartIcon size={16} />
         <div>
           <div className="text-xs font-medium text-gray-300">{alliance.name}</div>
           <div className="text-xs text-gray-600">
@@ -117,7 +119,7 @@ function AllianceRow({ alliance }: { alliance: Alliance }) {
 
 function EventRow({ event }: { event: AllianceEvent }) {
   const color = EVENT_COLORS[event.type] || "#7B61FF";
-  const icon = EVENT_ICONS[event.type] || "📋";
+  const icon = EVENT_ICONS[event.type] || <FileDescriptionIcon size={14} />;
   const timeAgo = formatTimeAgo(event.timestamp);
 
   return (

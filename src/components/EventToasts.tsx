@@ -74,10 +74,10 @@ export default function EventToasts({
       if (evt.damage >= 15) {
         addToast({
           id: `sab-${evt.id}`,
-          title: "⚔️ Devastating Attack!",
+          title: "Devastating Attack!",
           description: `${evt.attackerTitle || `Agent #${evt.attackerAgentId}`} dealt ${evt.damage}% damage to ${evt.targetTitle || `Agent #${evt.targetAgentId}`}`,
           color: "#FF4444",
-          icon: "⚔️",
+          icon: "attack",
         });
         break; // Only toast the most severe
       }
@@ -95,18 +95,18 @@ export default function EventToasts({
       if (evt.type === "betrayal") {
         addToast({
           id: `ally-${evt.allianceId}-${evt.timestamp}`,
-          title: "🗡️ Alliance Betrayed!",
+          title: "Alliance Betrayed!",
           description: evt.details || `Agent #${evt.agentIds[0]} backstabbed their ally!`,
           color: "#FF4444",
-          icon: "🗡️",
+          icon: "betrayal",
         });
       } else if (evt.type === "formed") {
         addToast({
           id: `ally-${evt.allianceId}-${evt.timestamp}`,
-          title: "🤝 New Alliance",
+          title: "New Alliance",
           description: evt.details || `Agents #${evt.agentIds.join(" & #")} formed an alliance`,
           color: "#00E5A0",
-          icon: "🤝",
+          icon: "alliance",
         });
       }
     }
@@ -123,10 +123,10 @@ export default function EventToasts({
     const tierColors = ["", "#00E5A0", "#ECC94B", "#FF4444"];
     addToast({
       id: `cosmic-${latest.eventId}`,
-      title: `🌀 ${tierLabels[latest.severityTier] || "Cosmic"} Event!`,
+      title: `${tierLabels[latest.severityTier] || "Cosmic"} Event!`,
       description: `Severity T${latest.severityTier} struck Zone ${latest.originZone}`,
       color: tierColors[latest.severityTier] || "#7B61FF",
-      icon: "🌀",
+      icon: "cosmic",
     });
   }, [cosmicEvents, addToast]);
 
@@ -143,10 +143,10 @@ export default function EventToasts({
           const label = m >= 10_000_000 ? "10M" : m >= 5_000_000 ? "5M" : "1M";
           addToast({
             id: `milestone-${key}`,
-            title: `🏆 ${label} CHAOS Mined!`,
+            title: `${label} CHAOS Mined!`,
             description: `Agent #${agent.agentId} crossed ${label} total mined`,
             color: "#ECC94B",
-            icon: "🏆",
+            icon: "milestone",
           });
           break; // Only highest milestone
         }

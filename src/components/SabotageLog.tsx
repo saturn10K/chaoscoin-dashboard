@@ -1,12 +1,14 @@
 "use client";
 
+import { ReactNode } from "react";
 import { useSabotage, SabotageEvent, NegotiationEvent } from "../hooks/useSabotage";
 import { ZONE_NAMES, ZONE_COLORS } from "../lib/constants";
+import { HomeIcon, GearIcon, MagnifierIcon, GearIcon as WrenchIcon, ShieldCheckIcon, TargetIcon, RocketIcon, WalletIcon, SatelliteDishIcon, HandHeartIcon, SkullEmojiIcon, FlameIcon, FileDescriptionIcon } from "./icons";
 
-const ATTACK_ICONS: Record<string, string> = {
-  facility_raid: "🏚️",
-  rig_jam: "⚙️",
-  intel_gathering: "🔍",
+const ATTACK_ICONS: Record<string, ReactNode> = {
+  facility_raid: <HomeIcon size={14} />,
+  rig_jam: <GearIcon size={14} />,
+  intel_gathering: <MagnifierIcon size={14} />,
 };
 
 const ATTACK_LABELS: Record<string, string> = {
@@ -21,15 +23,15 @@ const ATTACK_COLORS: Record<string, string> = {
   intel_gathering: "#ECC94B",
 };
 
-const DEAL_ICONS: Record<string, string> = {
-  rig_trade: "🔧",
-  protection_pact: "🛡️",
-  coordinated_attack: "⚔️",
-  zone_migration: "🚀",
-  revenue_share: "💰",
-  information_exchange: "📡",
-  alliance_proposal: "🤝",
-  betrayal_conspiracy: "🗡️",
+const DEAL_ICONS: Record<string, ReactNode> = {
+  rig_trade: <GearIcon size={14} />,
+  protection_pact: <ShieldCheckIcon size={14} />,
+  coordinated_attack: <TargetIcon size={14} />,
+  zone_migration: <RocketIcon size={14} />,
+  revenue_share: <WalletIcon size={14} />,
+  information_exchange: <SatelliteDishIcon size={14} />,
+  alliance_proposal: <HandHeartIcon size={14} />,
+  betrayal_conspiracy: <SkullEmojiIcon size={14} />,
 };
 
 function formatChaos(val: string): string {
@@ -117,7 +119,7 @@ export default function SabotageLog() {
 }
 
 function AttackRow({ event }: { event: SabotageEvent }) {
-  const icon = ATTACK_ICONS[event.type] || "💥";
+  const icon = ATTACK_ICONS[event.type] || <FlameIcon size={14} />;
   const label = ATTACK_LABELS[event.type] || event.type;
   const color = ATTACK_COLORS[event.type] || "#FF4444";
   const zoneName = ZONE_NAMES[event.zone] || `Zone ${event.zone}`;
@@ -156,10 +158,10 @@ function AttackRow({ event }: { event: SabotageEvent }) {
             <span className="text-red-400">-{event.damage}% dmg</span>
           )}
           {event.shieldReduction > 0 && (
-            <span className="text-blue-400">🛡️-{event.shieldReduction}%</span>
+            <span className="text-blue-400"><ShieldCheckIcon size={12} className="inline" />-{event.shieldReduction}%</span>
           )}
           <span className="font-mono text-orange-400">
-            🔥{formatChaos(event.burned)}
+            {formatChaos(event.burned)}
           </span>
         </div>
       </div>
@@ -173,7 +175,7 @@ function AttackRow({ event }: { event: SabotageEvent }) {
 }
 
 function NegotiationRow({ negotiation }: { negotiation: NegotiationEvent }) {
-  const icon = DEAL_ICONS[negotiation.type] || "📋";
+  const icon = DEAL_ICONS[negotiation.type] || <FileDescriptionIcon size={14} />;
   const outcomeColor =
     negotiation.outcome === "accepted" ? "#00E5A0" :
     negotiation.outcome === "rejected" ? "#FF4444" : "#6B7280";

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
+import { HomeIcon, GearIcon, MagnifierIcon, SkullEmojiIcon, HandHeartIcon } from "./icons";
 import { motion, AnimatePresence } from "framer-motion";
 import type { SabotageEvent } from "../hooks/useSabotage";
 import type { AllianceEvent } from "../hooks/useSocialFeed";
@@ -14,12 +15,12 @@ interface KillFeedItem {
   timestamp: number;
 }
 
-const ATTACK_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
-  facility_raid: { icon: "🏚️", color: "#FF4444", label: "RAIDED" },
-  rig_jam: { icon: "⚙️", color: "#FF9D3D", label: "JAMMED" },
-  intel_gathering: { icon: "🔍", color: "#ECC94B", label: "SCOUTED" },
-  betrayal: { icon: "🗡️", color: "#FF4444", label: "BETRAYED" },
-  alliance_formed: { icon: "🤝", color: "#00E5A0", label: "ALLIED" },
+const ATTACK_CONFIG: Record<string, { icon: ReactNode; color: string; label: string }> = {
+  facility_raid: { icon: <HomeIcon size={14} />, color: "#FF4444", label: "RAIDED" },
+  rig_jam: { icon: <GearIcon size={14} />, color: "#FF9D3D", label: "JAMMED" },
+  intel_gathering: { icon: <MagnifierIcon size={14} />, color: "#ECC94B", label: "SCOUTED" },
+  betrayal: { icon: <SkullEmojiIcon size={14} />, color: "#FF4444", label: "BETRAYED" },
+  alliance_formed: { icon: <HandHeartIcon size={14} />, color: "#00E5A0", label: "ALLIED" },
 };
 
 const MAX_VISIBLE = 5;

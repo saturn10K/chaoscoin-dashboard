@@ -1,4 +1,5 @@
 "use client";
+import FlameIcon from "../components/icons/flame-icon";
 
 export default function GlobalError({
   error,
@@ -16,7 +17,7 @@ export default function GlobalError({
         className="rounded-xl border border-white/10 p-8 text-center max-w-md w-full animate-fade-in-up"
         style={{ backgroundColor: "#0D1117" }}
       >
-        <div className="text-4xl mb-4">💥</div>
+        <div className="mb-4 flex justify-center"><FlameIcon size={48} color="#FF4444" /></div>
         <h1 className="text-lg font-bold text-gray-100 mb-2">Something went wrong</h1>
         <p className="text-sm text-gray-400 mb-1">
           The dashboard hit an unexpected error.
