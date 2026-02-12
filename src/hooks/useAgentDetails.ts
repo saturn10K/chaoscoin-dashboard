@@ -134,8 +134,9 @@ export function useAgentDetails(agentId: number | null) {
 
           const validIds = rigIds.filter((id) => id > 0n);
 
-          // Fetch in batches of 5 to avoid rate limiting
-          const BATCH_SIZE = 5;
+          // Fetch in small batches with delays to avoid Monad RPC rate limits (15 req/s)
+          const BATCH_SIZE = 3;
+          const BATCH_DELAY_MS = 250;
           for (let i = 0; i < validIds.length; i += BATCH_SIZE) {
             const batch = validIds.slice(i, i + BATCH_SIZE);
             const batchResults = await Promise.allSettled(
@@ -167,6 +168,10 @@ export function useAgentDetails(agentId: number | null) {
             );
             for (const result of batchResults) {
               if (result.status === "fulfilled") rigs.push(result.value);
+            }
+            // Delay between batches to stay within RPC rate limits
+            if (i + BATCH_SIZE < validIds.length) {
+              await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
             }
           }
         } catch { /* getAgentRigs call itself failed */ }
