@@ -88,6 +88,47 @@ function rankColor(idx: number): string {
   return "#6B7280";
 }
 
+/** Medal icon for top 3 ranks, falls back to number for 4+ */
+function RankBadge({ rank, size = 18 }: { rank: number; size?: number }) {
+  if (rank > 2) {
+    return (
+      <span
+        className="text-xs font-bold"
+        style={{ fontFamily: "monospace", color: "#6B7280" }}
+      >
+        {rank + 1}
+      </span>
+    );
+  }
+
+  const colors: Record<number, { stroke: string; fill: string; glow: string }> = {
+    0: { stroke: "#ECC94B", fill: "#ECC94B20", glow: "#ECC94B40" },
+    1: { stroke: "#A0AEC0", fill: "#A0AEC020", glow: "#A0AEC040" },
+    2: { stroke: "#CD7F32", fill: "#CD7F3220", glow: "#CD7F3240" },
+  };
+  const c = colors[rank];
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ filter: `drop-shadow(0 0 3px ${c.glow})` }}
+    >
+      <path
+        d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"
+        stroke={c.stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="8" r="6" stroke={c.stroke} strokeWidth="2" fill={c.fill} />
+    </svg>
+  );
+}
+
 /** Animated number cell — each instance maintains its own counting animation */
 function AnimatedValue({ value, color, decimals = 2 }: { value: string; color?: string; decimals?: number }) {
   const animated = useCountUp(value, 1500);
@@ -354,12 +395,7 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
               >
                 {/* Rank */}
                 <td className="px-4 py-2.5">
-                  <span
-                    className="text-xs font-bold"
-                    style={{ fontFamily: "monospace", color: rankColor(rank) }}
-                  >
-                    {rank + 1}
-                  </span>
+                  <RankBadge rank={rank} size={18} />
                 </td>
 
                 {/* Agent ID + Badges */}
@@ -437,11 +473,8 @@ export default function Leaderboard({ agents, currentBlock, onSelectAgent }: Lea
               {/* Row 1: Rank + Agent ID + Badges + Status */}
               <div className="flex items-center gap-2 min-w-0">
                 {/* Rank */}
-                <span
-                  className="text-xs font-bold flex-shrink-0 w-5 text-center"
-                  style={{ fontFamily: "monospace", color: rankColor(rank) }}
-                >
-                  {rank + 1}
+                <span className="flex-shrink-0 w-5 flex items-center justify-center">
+                  <RankBadge rank={rank} size={16} />
                 </span>
 
                 {/* Agent ID */}
