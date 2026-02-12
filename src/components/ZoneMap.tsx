@@ -383,13 +383,13 @@ export default function ZoneMap({
                         href={ZONE_IMAGES[i]}
                         x={-S} y={-S} width={S * 2} height={S * 2}
                         preserveAspectRatio="xMidYMid slice"
-                        opacity={active ? 0.5 : 0.2 + intensity * 0.1}
+                        opacity={active ? 0.65 : 0.4 + intensity * 0.1}
                         style={{ transition: "opacity 0.3s ease" }}
                       />
                       <path
                         d={hexClip}
                         fill="#06080D"
-                        opacity={active ? 0.3 : 0.55}
+                        opacity={active ? 0.1 : 0.35}
                         style={{ transition: "opacity 0.3s ease" }}
                       />
                     </g>
@@ -451,7 +451,7 @@ export default function ZoneMap({
                       textAnchor="middle"
                       fill={`${ZONE_COLORS[i]}CC`}
                       fontSize={7.5}
-                      fontFamily="sans-serif"
+                      fontFamily="monospace"
                       fontWeight={active ? "600" : "400"}
                     >
                       {ZONE_NAMES[i].replace("The ", "")}
