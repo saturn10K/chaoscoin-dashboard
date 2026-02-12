@@ -37,13 +37,6 @@ export const ADDRESSES = {
   shieldManager: (process.env.NEXT_PUBLIC_SHIELD_MANAGER_ADDRESS || "0x73c6be50f0492b1cbc7f1af595028cd894c0c005") as `0x${string}`,
 } as const;
 
-// Debug: log loaded addresses on startup
-if (typeof window !== "undefined") {
-  console.log("[Contracts] RPC:", rpcUrl);
-  console.log("[Contracts] ChaosToken:", ADDRESSES.chaosToken);
-  console.log("[Contracts] AgentRegistry:", ADDRESSES.agentRegistry);
-}
-
 // Public client for read-only chain queries
 // Uses multicall batching — viem automatically batches concurrent readContract
 // calls into a single multicall3 RPC request

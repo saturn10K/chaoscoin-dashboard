@@ -83,9 +83,6 @@ export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: Soci
   const { alliances, events: allianceEvents } = useAlliances();
   const [filter, setFilter] = useState<string | null>(null);
 
-  // Debug: log render state
-  console.log("[SocialFeed] render — loading:", loading, "messages:", messages.length, "alliances:", allianceEvents.length, "cosmic:", cosmicEvents.length, "filter:", filter);
-
   // Build a set of agent IDs that have active alliances
   const alliedAgentIds = useMemo(() => {
     const ids = new Set<number>();
@@ -149,9 +146,7 @@ export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: Soci
     // Sort by timestamp descending (newest first)
     items.sort((a, b) => b.timestamp - a.timestamp);
 
-    const result = items.slice(0, 60); // Cap at 60 items
-    console.log("[SocialFeed] feedItems:", result.length, "from", messages.length, "msgs +", allianceEvents.length, "alliance +", cosmicEvents.length, "cosmic");
-    return result;
+    return items.slice(0, 60); // Cap at 60 items
   }, [messages, allianceEvents, cosmicEvents, currentBlock, filter]);
 
   return (
@@ -218,11 +213,6 @@ export default function SocialFeed({ cosmicEvents = [], currentBlock = 0 }: Soci
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Debug: visible status */}
-      <div className="text-xs text-yellow-400 mb-2">
-        DEBUG: {loading ? "loading..." : `${feedItems.length} items (${messages.length} msgs)`}
       </div>
 
       {loading ? (
