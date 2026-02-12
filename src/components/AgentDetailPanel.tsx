@@ -427,7 +427,7 @@ function RigGroupCard({ group }: { group: RigGroup }) {
             border: `1px solid ${tierColor}30`,
           }}
         >
-          {tierRigs.length > 1 ? `×${tierRigs.length}` : "#" + tierRigs[0].rigId}
+          {tierRigs.length > 1 ? `×${tierRigs.length}` : `Rig #${tierRigs[0].rigId}`}
         </span>
       </div>
 
