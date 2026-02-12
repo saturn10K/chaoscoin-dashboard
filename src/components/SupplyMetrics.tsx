@@ -1,14 +1,59 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
-function formatNumber(val: string): string {
-  const num = parseFloat(val);
-  if (isNaN(num)) return "0.00";
-  return num.toLocaleString("en-US", {
+function formatNumber(val: number): string {
+  if (isNaN(val)) return "0.00";
+  return val.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/** Easing function — ease-out cubic for a snappy-then-smooth feel */
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+/** Hook that animates a number counting from its previous value to the new value */
+function useCountUp(target: string, duration = 600): number {
+  const targetNum = parseFloat(target) || 0;
+  const [display, setDisplay] = useState(targetNum);
+  const prevRef = useRef(targetNum);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const from = prevRef.current;
+    const to = targetNum;
+    prevRef.current = to;
+
+    // Skip animation on first render or if no change
+    if (from === to) {
+      setDisplay(to);
+      return;
+    }
+
+    const startTime = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+      const current = from + (to - from) * eased;
+      setDisplay(current);
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [targetNum, duration]);
+
+  return display;
 }
 
 interface BurnsBySource {
@@ -71,9 +116,15 @@ export default function SupplyMetrics({
   burnRatio,
   burnsBySource,
 }: SupplyMetricsProps) {
-  const totalBurnedNum = parseFloat(totalBurned) || 0;
   const mintedGlow = useGlowPop(totalMinted);
   const burnedGlow = useGlowPop(totalBurned);
+
+  // Animated counting values
+  const animatedMinted = useCountUp(totalMinted);
+  const animatedBurned = useCountUp(totalBurned);
+  const animatedCirculating = useCountUp(circulatingSupply);
+  const animatedBurnRatio = useCountUp(burnRatio.toFixed(4), 800);
+  const totalBurnedNum = animatedBurned;
 
   // Compute source percentages for the bar chart
   const sourceValues = BURN_SOURCE_LABELS.map((s) => ({
@@ -114,7 +165,7 @@ export default function SupplyMetrics({
               key={mintedGlow ? `minted-${Date.now()}` : "minted-stable"}
               style={{ color: "#00E5A0", fontFamily: "monospace" }}
             >
-              {formatNumber(totalMinted)}
+              {formatNumber(animatedMinted)}
             </div>
           </div>
 
@@ -129,7 +180,7 @@ export default function SupplyMetrics({
               key={burnedGlow ? `burned-${Date.now()}` : "burned-stable"}
               style={{ color: "#FF6B35", fontFamily: "monospace" }}
             >
-              {formatNumber(totalBurned)}
+              {formatNumber(animatedBurned)}
             </div>
           </div>
 
@@ -142,7 +193,7 @@ export default function SupplyMetrics({
               className="text-lg font-bold text-gray-200"
               style={{ fontFamily: "monospace" }}
             >
-              {formatNumber(circulatingSupply)}
+              {formatNumber(animatedCirculating)}
             </div>
           </div>
 
@@ -156,7 +207,7 @@ export default function SupplyMetrics({
                 className="text-lg font-bold"
                 style={{ color: "#FF6B35", fontFamily: "monospace" }}
               >
-                {burnRatio.toFixed(2)}%
+                {animatedBurnRatio.toFixed(2)}%
               </span>
             </div>
             {/* Burn ratio bar */}
@@ -207,7 +258,7 @@ export default function SupplyMetrics({
                     className="text-xs text-gray-400 w-20 text-right flex-shrink-0"
                     style={{ fontFamily: "monospace" }}
                   >
-                    {formatNumber(burnsBySource[source.key])}
+                    {formatNumber(source.value)}
                   </span>
                   <span className="text-xs text-gray-600 w-10 text-right flex-shrink-0">
                     {pct}%
