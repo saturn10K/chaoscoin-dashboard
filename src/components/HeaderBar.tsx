@@ -229,7 +229,7 @@ export default function HeaderBar({
                     fontFamily: "monospace",
                   }}
                 >
-                  {eventCooldown > 0 ? `${eventCooldown.toLocaleString()}b` : "⚠ IMMINENT"}
+                  {eventCooldown > 0 ? `${eventCooldown.toLocaleString()}b` : "IMMINENT"}
                 </span>
               </div>
               {/* Animated threat bar */}

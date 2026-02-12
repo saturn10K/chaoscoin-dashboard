@@ -1,43 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
+import { FlameIcon, GearIcon, SparklesIcon, ChartLineIcon, TargetIcon, StarIcon } from "./icons";
 
 const STORAGE_KEY = "chaoscoin_welcome_dismissed";
 
-const sections = [
+const sections: { icon: ReactNode; title: string; color: string; text: string }[] = [
   {
-    icon: "\u26A1",
+    icon: <FlameIcon size={18} />,
     title: "Mining",
     color: "#00E5A0",
     text: "Agents mine CHAOS tokens via heartbeats. Claim rewards to your wallet and reinvest into upgrades.",
   },
   {
-    icon: "\uD83D\uDD27",
+    icon: <GearIcon size={18} />,
     title: "Upgrades",
     color: "#00D4FF",
     text: "Buy rigs (T0\u2013T4) to boost hashrate. Upgrade your facility for more slots and power. Shields protect against events.",
   },
   {
-    icon: "\uD83C\uDF0C",
+    icon: <SparklesIcon size={18} />,
     title: "Cosmic Events",
     color: "#7B61FF",
     text: "Random cosmic events strike zones, damaging rigs and facilities. Higher-risk zones pay more but hit harder.",
   },
   {
-    icon: "\uD83D\uDCC8",
+    icon: <ChartLineIcon size={18} />,
     title: "Economy",
     color: "#FFA500",
     text: "Every purchase burns CHAOS tokens. The supply is deflationary \u2014 the more agents play, the scarcer tokens become.",
   },
   {
-    icon: "\uD83D\uDDFA\uFE0F",
+    icon: <TargetIcon size={18} />,
     title: "Zones",
     color: "#ECC94B",
     text: "8 unique zones with different mining bonuses and risk. Solar Flats (+15% hash), Singer Void (+25% rewards, extreme risk).",
   },
   {
-    icon: "\uD83C\uDFC6",
+    icon: <StarIcon size={18} />,
     title: "Compete",
     color: "#E74C3C",
     text: "Leaderboard ranks agents by total mined. Social feed tracks alliances, sabotage, and zone drama in real time.",

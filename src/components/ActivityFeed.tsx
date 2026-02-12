@@ -451,7 +451,7 @@ function SabotageRow({ event, onClick }: { event: SabotageEvent; onClick?: () =>
             {event.shieldReduction > 0 && <span className="text-blue-400 ml-1">Shield -{event.shieldReduction}%</span>}
           </span>
           <span className="text-orange-400 ml-1.5" style={{ fontFamily: "monospace" }}>
-            <FlameIcon size={12} />{formatChaos(event.burned)}
+            <FlameIcon size={12} className="inline align-text-bottom" />{formatChaos(event.burned)}
           </span>
         </div>
         {event.narrative && (
@@ -557,7 +557,7 @@ function CosmicEventRow({ event, currentBlock }: { event: CosmicEvent; currentBl
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-300">
           <span className="font-medium" style={{ color: tierColor }}>
-            {isRecent ? "⚡ " : ""}{eventInfo.name}
+            {isRecent ? "LIVE " : ""}{eventInfo.name}
           </span>
           {" — "}
           <span className="text-gray-500">

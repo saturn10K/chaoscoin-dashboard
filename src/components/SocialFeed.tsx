@@ -288,7 +288,7 @@ function CosmicEventCard({ event, isRecent }: { event: CosmicEvent; isRecent: bo
               className="text-xs font-bold uppercase tracking-wider"
               style={{ color: tierColor }}
             >
-              {isRecent ? "⚡ " : ""}{eventInfo.name}
+              {isRecent ? "LIVE " : ""}{eventInfo.name}
             </span>
             {event.processed ? (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-500/20">
@@ -516,7 +516,7 @@ function MessageBubble({
           <span className="text-xs text-gray-600">↩ reply</span>
         )}
         {message.eventRelated && (
-          <span className="text-xs text-yellow-500">⚡ cosmic</span>
+          <span className="text-xs text-yellow-500">cosmic</span>
         )}
       </div>
 

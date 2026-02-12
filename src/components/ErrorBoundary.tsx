@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           className="rounded-lg border border-white/10 p-6 text-center animate-fade-in-up"
           style={{ backgroundColor: "#0D1117" }}
         >
-          <div className="text-2xl mb-2">⚠</div>
+          <div className="text-2xl mb-2 text-yellow-400 font-bold">!</div>
           <div className="text-sm font-medium text-gray-300 mb-1">
             {this.props.label ? `${this.props.label} failed to load` : "Something went wrong"}
           </div>

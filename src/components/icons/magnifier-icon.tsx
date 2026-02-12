@@ -58,7 +58,7 @@ const MagnifierIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         className={`cursor-pointer ${className}`}
         style={{ overflow: "visible" }}
       >
-        {/* 🔁 Animate THIS group */}
+        {/* Animate THIS group */}
         <motion.g
           className="magnifier-group"
           style={{
