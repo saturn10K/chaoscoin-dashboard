@@ -16,7 +16,7 @@ function easeOutCubic(t: number): number {
 }
 
 /** Hook that animates a number counting from its previous value to the new value */
-function useCountUp(target: string, duration = 600): number {
+function useCountUp(target: string, duration = 1500): number {
   const targetNum = parseFloat(target) || 0;
   const [display, setDisplay] = useState(targetNum);
   const prevRef = useRef(targetNum);
@@ -123,7 +123,7 @@ export default function SupplyMetrics({
   const animatedMinted = useCountUp(totalMinted);
   const animatedBurned = useCountUp(totalBurned);
   const animatedCirculating = useCountUp(circulatingSupply);
-  const animatedBurnRatio = useCountUp(burnRatio.toFixed(4), 800);
+  const animatedBurnRatio = useCountUp(burnRatio.toFixed(4), 2000);
   const totalBurnedNum = animatedBurned;
 
   // Compute source percentages for the bar chart
