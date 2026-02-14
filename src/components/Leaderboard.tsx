@@ -76,8 +76,8 @@ const STATUS_CONFIG: Record<AgentStatus, { color: string; label: string }> = {
 type SortKey = "hashrate" | "totalMined" | "resilience";
 
 const SORT_TABS: { key: SortKey; label: string }[] = [
-  { key: "hashrate", label: "Hashrate" },
   { key: "totalMined", label: "Mined" },
+  { key: "hashrate", label: "Hashrate" },
   { key: "resilience", label: "Resilience" },
 ];
 
@@ -157,7 +157,7 @@ function AnimatedCompact({ value, color }: { value: string; color?: string }) {
 const LB_PAGE_SIZE = 15;
 
 export default function Leaderboard({ agents, currentBlock, onSelectAgent }: LeaderboardProps) {
-  const [sortBy, setSortBy] = useState<SortKey>("hashrate");
+  const [sortBy, setSortBy] = useState<SortKey>("totalMined");
   const [page, setPage] = useState(0);
   const { alliances } = useAlliances();
   const prevRanksRef = useRef<Map<string, number>>(new Map());
