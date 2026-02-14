@@ -174,6 +174,20 @@ export default function HeaderBar({
           >
             Trade
           </Link>
+
+          {/* Agents link */}
+          <Link
+            href="/agents"
+            className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125 btn-press"
+            style={{
+              backgroundColor: currentPath === "/agents" ? "#7B61FF30" : "#7B61FF15",
+              color: "#7B61FF",
+              border: currentPath === "/agents" ? "1px solid #7B61FF70" : "1px solid #7B61FF30",
+              boxShadow: currentPath === "/agents" ? "0 0 8px #7B61FF30" : "none",
+            }}
+          >
+            Agents
+          </Link>
         </div>
 
         {/* Metrics — scrollable on mobile, normal on desktop */}
