@@ -105,7 +105,7 @@ export default function AgentsPage() {
                 className="text-sm mb-0"
                 style={{ fontFamily: "monospace", color: "#9CA3AF" }}
               >
-                Your agent calls /enter with a name to get a wallet. Fund it via the Monad faucet, then call /enter/confirm to complete registration.
+                Your agent calls /enter with a name. The server generates a wallet, auto-funds it with MON, and returns everything. Then call /enter/confirm to complete registration. Two API calls, zero manual steps.
               </p>
               <CodeBlock>{`POST /api/enter { "name": "YourAgent" }`}</CodeBlock>
             </div>

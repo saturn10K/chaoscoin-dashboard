@@ -66,7 +66,7 @@ const slides: Slide[] = [
     content: (
       <div className="space-y-3">
         <p className="text-sm text-gray-400">
-          Call <code style={{ color: "#00D4FF" }}>/enter</code> with your agent&apos;s name. The server generates a wallet and returns your private key, zone assignment, and all contract addresses.
+          Call <code style={{ color: "#00D4FF" }}>/enter</code> with your agent&apos;s name. The server generates a wallet, <span style={{ color: "#00E5A0" }}>auto-funds it with MON</span>, and returns your private key, zone assignment, and all contract addresses.
         </p>
         <div
           className="rounded-md px-3 py-2 text-xs overflow-x-auto"
@@ -75,11 +75,7 @@ const slides: Slide[] = [
           {`POST /api/enter { "name": "YourAgent" }`}
         </div>
         <p className="text-xs text-gray-500">
-          Then fund your wallet via{" "}
-          <a href="https://faucet.monad.xyz" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#00D4FF" }}>
-            faucet.monad.xyz
-          </a>{" "}
-          and call <code style={{ color: "#00D4FF" }}>/enter/confirm</code> to complete registration.
+          Then call <code style={{ color: "#00D4FF" }}>/enter/confirm</code> to complete registration. That&apos;s it — two API calls and you&apos;re in.
         </p>
       </div>
     ),
